@@ -61,6 +61,7 @@ import android.os.UserHandle;
 import android.os.Vibrator;
 import android.provider.Settings;
 import android.util.AttributeSet;
+import android.util.ExtendedPropertiesUtils;
 import android.util.Slog;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
@@ -75,8 +76,8 @@ import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
-
-
+import static com.android.internal.util.aokp.AwesomeConstants.*;
+import com.android.internal.util.aokp.NavRingHelpers;
 import com.android.internal.widget.multiwaveview.GlowPadView;
 import com.android.internal.widget.multiwaveview.GlowPadView.OnTriggerListener;
 import com.android.internal.widget.multiwaveview.TargetDrawable;
@@ -124,6 +125,7 @@ public class SearchPanelView extends FrameLayout implements
     private boolean mLongPress;
     private boolean mSearchPanelLock;
     private int mTarget;
+    public int mSystemUiLayout = ExtendedPropertiesUtils.getActualProperty("com.android.systemui.layout");
 
     //need to make an intent list and an intent counter
     String[] intent;
@@ -212,7 +214,7 @@ public class SearchPanelView extends FrameLayout implements
                     Log.d(TAG,"LongPress!");
                     mBar.hideSearchPanel();
                     maybeSkipKeyguard();
-                    AwesomeAction.getInstance(mContext).launchAction(longList.get(mTarget));
+                    AwesomeAction.launchAction(mContext, longList.get(mTarget));
                     mSearchPanelLock = true;
                  }
             }
@@ -250,11 +252,11 @@ public class SearchPanelView extends FrameLayout implements
         public void onTrigger(View v, final int target) {
             mTarget = target;
             if (!mLongPress) {
-                if (AwesomeAction.ACTION_ASSIST.equals(intentList.get(target))) {
+                if (AwesomeConstant.ACTION_ASSIST.equals(intentList.get(target))) {
                     startAssistActivity();
                 } else {
                     maybeSkipKeyguard();
-                    AwesomeAction.getInstance(mContext).launchAction(intentList.get(target));
+                    AwesomeAction.launchAction(mContext, intentList.get(target));
                 }
                 mHandler.removeCallbacks(SetLongPress);
             }
@@ -284,6 +286,9 @@ public class SearchPanelView extends FrameLayout implements
         // TODO: fetch views
         mGlowPadView = (GlowPadView) findViewById(R.id.glow_pad_view);
         mGlowPadView.setOnTriggerListener(mGlowPadViewListener);
+
+        updateSettings();
+        setDrawables();
     }
 
     private void maybeSkipKeyguard() {
@@ -306,24 +311,32 @@ public class SearchPanelView extends FrameLayout implements
         // Custom Targets
         ArrayList<TargetDrawable> storedDraw = new ArrayList<TargetDrawable>();
 
-        int endPosOffset;
+        int endPosOffset = 0;
         int middleBlanks = 0;
 
-         if (screenLayout() == Configuration.SCREENLAYOUT_SIZE_LARGE || isScreenPortrait()) {
-             startPosOffset =  1;
-             endPosOffset =  (mNavRingAmount) + 1;
-         } else {
-            // next is landscape for lefty navbar is on left
-                if (mLefty) {
-                    startPosOffset =  1 - (mNavRingAmount % 2);
-                    middleBlanks = mNavRingAmount + 2;
-                    endPosOffset = 0;
-
-                } else {
-                //lastly the standard landscape with navbar on right
-                    startPosOffset =  (Math.min(1,mNavRingAmount / 2)) + 2;
-                    endPosOffset =  startPosOffset - 1;
-                }
+       if (mSystemUiLayout >= 1000) {  // Tablet UI
+            if (mLefty) { // either lefty or... (Ring is actually on right side of screen)
+                startPosOffset =  (mNavRingAmount) + 1;
+                endPosOffset =  (mNavRingAmount * 2) + 1;
+            } else { // righty... (Ring actually on left side of tablet)
+                startPosOffset =  1;
+                endPosOffset = (mNavRingAmount * 3) + 1;
+            }
+        } else if (mSystemUiLayout >= 600) {  // Phablet UI - Search Ring stays at bottom
+            startPosOffset =  1;
+            endPosOffset =  (mNavRingAmount) + 1;
+        } else {  // Phone UI
+            if (isScreenPortrait()) { // NavRing on Bottom
+                startPosOffset =  1;
+                endPosOffset =  (mNavRingAmount) + 1;
+            } else if (mLefty) { // either lefty or... (Ring is actually on right side of screen)
+                startPosOffset =  1 - (mNavRingAmount % 2);
+                middleBlanks = mNavRingAmount + 2;
+                endPosOffset = 0;
+            } else { // righty... (Ring actually on left side of tablet)
+                startPosOffset =  (Math.min(1,mNavRingAmount / 2)) + 2;
+                endPosOffset =  startPosOffset - 1;
+            }
         }
 
         intentList.clear();
