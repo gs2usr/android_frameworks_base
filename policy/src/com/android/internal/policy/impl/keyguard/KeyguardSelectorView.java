@@ -50,6 +50,9 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -159,6 +162,17 @@ public class KeyguardSelectorView extends LinearLayout implements KeyguardSecuri
     }
 
     OnTriggerListener mOnTriggerListener = new OnTriggerListener() {
+
+       final Runnable SetLongPress = new Runnable () {
+            public void run() {
+                if (!mGlowPadLock) {
+                    mGlowPadLock = true;
+                    mLongPress = true;
+                    mContext.unregisterReceiver(receiver);
+                    launchAction(longActivities[mTarget]);
+                 }
+            }
+        };
 
         public void onTrigger(View v, int target) {
             if (mStoredTargets == null) {
@@ -297,17 +311,18 @@ public class KeyguardSelectorView extends LinearLayout implements KeyguardSecuri
             Settings.System.getInt(cr,
                 Settings.System.RIBBON_TEXT_COLOR[AokpRibbonHelper.LOCKSCREEN], -1),
             Settings.System.getInt(cr,
-                Settings.System.RIBBON_ICON_SIZE[AokpRibbonHelper.LOCKSCREEN], 0)));
+                Settings.System.RIBBON_ICON_SIZE[AokpRibbonHelper.LOCKSCREEN], 0),
+            Settings.System.getInt(cr,
+                Settings.System.RIBBON_ICON_SPACE[AokpRibbonHelper.LOCKSCREEN], 5),
+            Settings.System.getBoolean(cr,
+                Settings.System.RIBBON_ICON_VIBRATE[AokpRibbonHelper.LOCKSCREEN], true),
+            Settings.System.getBoolean(cr,
+                Settings.System.RIBBON_ICON_COLORIZE[AokpRibbonHelper.LOCKSCREEN], true)));
         updateTargets();
 
         mSecurityMessageDisplay = new KeyguardMessageArea.Helper(this);
         View bouncerFrameView = findViewById(R.id.keyguard_selector_view_frame);
         mBouncerFrame = bouncerFrameView.getBackground();
-        mUnlockBroadcasted = false;
-        filter = new IntentFilter();
-        filter.addAction(UnlockReceiver.ACTION_UNLOCK_RECEIVER);
-        receiver = new UnlockReceiver();
-        mContext.registerReceiver(receiver, filter);
     }
 
     public void setCarrierArea(View carrierArea) {
@@ -350,6 +365,10 @@ public class KeyguardSelectorView extends LinearLayout implements KeyguardSecuri
     @Override
     public void showUsabilityHint() {
         mGlowPadView.ping();
+    }
+
+    public boolean isScreenPortrait() {
+        return res.getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
     }
 
     private void updateTargets() {

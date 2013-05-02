@@ -69,7 +69,7 @@ public class NavRingHelpers {
 
         if (TextUtils.isEmpty(action)) {
             TargetDrawable drawable = new TargetDrawable(res,
-                    com.android.internal.R.drawable.ic_empty);
+                    com.android.internal.R.drawable.ic_action_empty);
             drawable.setEnabled(false);
             return drawable;
         }
@@ -77,7 +77,7 @@ public class NavRingHelpers {
         AwesomeConstant IconEnum = fromString(action);
         if (IconEnum.equals(AwesomeConstant.ACTION_NULL)) {
             TargetDrawable drawable = new TargetDrawable(res,
-                    com.android.internal.R.drawable.ic_empty);
+                    com.android.internal.R.drawable.ic_action_empty);
             drawable.setEnabled(false);
             return drawable;
         } else if (IconEnum.equals(AwesomeConstant.ACTION_ASSIST)) {
@@ -93,7 +93,7 @@ public class NavRingHelpers {
 
                 if (info == null) {
                     TargetDrawable drawable = new TargetDrawable(res,
-                            com.android.internal.R.drawable.ic_empty);
+                            com.android.internal.R.drawable.ic_action_empty);
                     drawable.setEnabled(false);
                     return drawable;
                 }
@@ -115,7 +115,7 @@ public class NavRingHelpers {
 
             } catch (URISyntaxException e) {
                 TargetDrawable drawable = new TargetDrawable(res,
-                        com.android.internal.R.drawable.ic_empty);
+                        com.android.internal.R.drawable.ic_action_empty);
                 drawable.setEnabled(false);
                 return drawable;
             }

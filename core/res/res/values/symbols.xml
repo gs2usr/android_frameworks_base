@@ -1382,6 +1382,7 @@
   <java-symbol type="id" name="targets" />
   <java-symbol type="integer" name="config_carDockRotation" />
   <java-symbol type="integer" name="config_defaultUiModeType" />
+  <java-symbol type="integer" name="config_alternativeUiModeType" />
   <java-symbol type="integer" name="config_deskDockRotation" />
   <java-symbol type="integer" name="config_lidKeyboardAccessibility" />
   <java-symbol type="integer" name="config_lidNavigationAccessibility" />
@@ -1907,6 +1908,12 @@
   <java-symbol type="string" name="config_deviceKeyHandlerLib" />
   <java-symbol type="string" name="config_deviceKeyHandlerClass" />
 
+  <!-- Lockscreen -->
+  <java-symbol type="drawable" name="ic_lockscreen_empty" />
+  <java-symbol type="drawable" name="ic_empty" />
+  <java-symbol type="drawable" name="ic_lockscreen_lock_pressed" />
+  <java-symbol type="drawable" name="ic_lockscreen_target_activated" />
+
   <!-- Telephony -->
   <java-symbol type="bool" name="config_smsSamsungCdmaAlternateMessageIDEncoding" />
   <java-symbol type="bool" name="config_samsung_stk" />
@@ -2011,7 +2018,14 @@
   <java-symbol type="string" name="symbol_picker_z" />
   <java-symbol type="string" name="symbol_picker_Z" />
 
-   <!-- AOKP ADD-ONS -->
+  <!-- Stylus gestures -->
+  <java-symbol type="bool" name="config_stylusGestures" />
+  <java-symbol type="string" name="stylus_app_not_installed" />
+
+ <!-- Navigation Ring -->
+  <java-symbol type="drawable" name="ic_navbar_blank" />
+  <java-symbol type="drawable" name="ic_navbar_blank_activated" />
+  <java-symbol type="drawable" name="ic_action_empty" />
 
   <!--  Awesome Action -->
   <java-symbol type="string" name="action_home"/>
@@ -2046,16 +2060,11 @@
   <!--  AOKP Ribbon -->
   <java-symbol type="layout" name="target_button" />
   <java-symbol type="id" name="ribbon" />
+  <java-symbol type="id" name="container" />
   <java-symbol type="id" name="keyguard_ribbon_and_battery" />
   <java-symbol type="dimen" name="icon_size_20" />
   <java-symbol type="dimen" name="icon_size_15" />
   <java-symbol type="dimen" name="notification_ribbon_padding" />
   <java-symbol type="dimen" name="lockscreen_ribbon_padding" />
 
- <!-- Navigation Ring -->
-  <java-symbol type="drawable" name="ic_navbar_blank" />
-  <java-symbol type="drawable" name="ic_navbar_blank_activated" />
-  <java-symbol type="drawable" name="ic_empty" />
-
-  <!-- AOKP ADD-ONS END -->
 </resources>

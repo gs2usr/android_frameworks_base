@@ -275,7 +275,7 @@ public final class Settings {
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String ACTION_DISPLAY_SETTINGS =
             "android.settings.DISPLAY_SETTINGS";
-
+            
     /**
      * Activity Action: Show settings to allow configuration of display.
      * <p>
@@ -1074,6 +1074,38 @@ public final class Settings {
         }
 
         /**
+         * @hide
+         * Methods to handle storing and retrieving arraylists
+         *
+         * @param cr The ContentResolver to access.
+         * @param name The name of the setting to modify.
+         * @param value The new value for the setting.
+         * @return true if the value was set, false on database errors
+         */
+        public static boolean putArrayList(ContentResolver cr, String name, ArrayList<String> list) {
+            if (list != null && list.size() > 0) {
+                String joined = TextUtils.join("|",list);
+                return putString(cr, name, joined);
+            } else {
+                return putString(cr, name, "");
+            }
+        }
+
+        public static ArrayList<String> getArrayList(ContentResolver cr, String name) {
+            String v = getString(cr, name);
+            ArrayList<String> list = new ArrayList<String>();
+            if (v != null) {
+              if (!v.isEmpty()){
+                String[] split = v.split("\\|");
+                for (String i : split) {
+                    list.add(i);
+	            }
+              }
+            }
+            return list;
+        }
+
+        /**
          * Convenience function for retrieving a single system settings value
          * as an integer.  Note that internally setting values are always
          * stored as strings; this function converts the string to an integer
@@ -1150,12 +1182,13 @@ public final class Settings {
          * or not a valid integer.
          */
         public static boolean getBoolean(ContentResolver cr, String name, boolean def) {
-            String v = getString(cr, name);
+            String resolved = getString(cr, name);
             try {
-                if(v != null)
-                    return "1".equals(v);
-                else
+                if(resolved != null) {
+                    return "1".equals(resolved);
+               } else {
                     return def;
+               }
             } catch (NumberFormatException e) {
                 return def;
             }
@@ -1192,7 +1225,6 @@ public final class Settings {
          * with that name.  Note that internally setting values are always
          * stored as strings, so this function converts the given value to a
          * string (1 or 0) before storing it.
-         *
          * @param cr The ContentResolver to access.
          * @param name The name of the setting to modify.
          * @param value The new value for the setting.
@@ -1200,36 +1232,6 @@ public final class Settings {
          */
         public static boolean putBoolean(ContentResolver cr, String name, boolean value) {
             return putString(cr, name, value ? "1" : "0");
-        }
-
-        /**
-         * @hide
-         * Methods to handle storing and retrieving arraylists
-         *
-         * @param cr The ContentResolver to access.
-         * @param name The name of the setting to modify.
-         * @param value The new value for the setting.
-         * @return true if the value was set, false on database errors
-         */
-        public static boolean putArrayList(ContentResolver cr, String name, ArrayList<String> list) {
-            if (list.size() > 0) {
-                String joined = TextUtils.join("|",list);
-                return putString(cr, name, joined);
-            }
-            return false;
-        }
-
-
-        public static ArrayList<String> getArrayList(ContentResolver cr, String name) {
-            String v = getString(cr, name);
-            ArrayList<String> list = new ArrayList<String>();
-            if (v != null) {
-                String[] split = v.split("\\|");
-                for (String i : split) {
-                    list.add(i);
-                }
-            }
-            return list;
         }
 
         /**
@@ -3018,14 +3020,14 @@ public final class Settings {
          */
         public static final String USER_INTERFACE_STATE = "user_interface_state";
 
-        /**	
+        /**
          * Allows to show the background activity back the lockscreen
          * The value is boolean (1 or 0).
          * @hide
          */
         public static final String LOCKSCREEN_SEE_THROUGH = "lockscreen_see_through";
 
-        /**	
+        /**
          * Allows lockscreen to show homescreen widgets
          * The value is boolean (1 or 0).
          * @hide
@@ -3150,6 +3152,55 @@ public final class Settings {
          * @hide
          */
         public static final String POWER_MENU_PROFILES_ENABLED = "power_menu_profiles_enabled";
+
+        /**
+         * Enable Stylus Gestures
+         *
+         * @hide
+         */
+        public static final String ENABLE_STYLUS_GESTURES = "enable_stylus_gestures";
+
+        /**
+         * Left Swipe Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_LEFT_SWIPE = "gestures_left_swipe";
+
+        /**
+         * Right Swipe Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_RIGHT_SWIPE = "gestures_right_swipe";
+
+        /**
+         * Up Swipe Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_UP_SWIPE = "gestures_up_swipe";
+
+        /**
+         * down Swipe Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_DOWN_SWIPE = "gestures_down_swipe";
+
+        /**
+         * Long press Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_LONG_PRESS = "gestures_long_press";
+
+        /**
+         * double tap Action
+         *
+         * @hide
+         */
+        public static final String GESTURES_DOUBLE_TAP = "gestures_double_tap";
 
         /**
          * Whether power menu airplane toggle is enabled
@@ -3593,53 +3644,6 @@ public final class Settings {
          */
         public static final String POWER_DIALOG_SHOW_REBOOT_KEYGUARD = "power_dialog_show_reboot_keyguard";
 
-       /**
-         * @hide
-         */
-        public static final String NAVIGATION_BAR_HEIGHT = "navigation_bar_height";
-
-        /**
-         * @hide
-         */
-        public static final String NAVIGATION_BAR_HEIGHT_LANDSCAPE = "navigation_bar_height_landscape";
-
-        /**
-         * @hide
-         */
-        public static final String NAVIGATION_BAR_WIDTH = "navigation_bar_width";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String NAVIGATION_BAR_WIDTH_PORT = "navigation_bar_width_port";
-
-        /**
-        *
-        * @hide
-        */
-        public static final String NAVIGATION_BAR_WIDTH_LAND = "navigation_bar_width_land";
-
-        /**
-         * @hide
-         */
-        public static final String NAV_HIDE_TIMEOUT = "nav_hide_timeout";
-
-        /**
-         * @hide
-         */
-        public static final String NAV_HIDE_ENABLE = "nav_hide_enable";
-
-        /**
-         * @hide
-         */
-        public static final String DRAG_HANDLE_WEIGHT = "drag_handle_weight";
-
-        /**
-         * @hide
-         */
-        public static final String DRAG_HANDLE_OPACITY = "drag_handle_opacity";
-
         /**
          * @hide
          */
@@ -3726,6 +3730,206 @@ public final class Settings {
             "navigation_bar_glow_duration_off",
             "navigation_bar_glow_duration_on",
         };
+
+        /**       
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_TARGETS_SHORT = new String[] {
+            "ribbon_targets_short_lockscreen",
+            "ribbon_targets_short_notification",
+            "ribbon_targets_short_swipe",
+            "ribbon_targets_short_quicksettings",
+            "ribbon_targets_short_swipe_right",
+            "ribbon_targets_short_swipe_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_TARGETS_LONG = new String[] {
+            "ribbon_targets_long_lockscreen",
+            "ribbon_targets_long_notification",
+            "ribbon_targets_long_swipe",
+            "ribbon_targets_long_quicksettings",
+            "ribbon_targets_long_swipe_right",
+            "ribbon_targets_long_swipe_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_TARGETS_ICONS = new String[] {
+            "ribbon_targets_icons_lockscreen",
+            "ribbon_targets_icons_notification",
+            "ribbon_targets_icons_swipe",
+            "ribbon_targets_icons_quicksettings",
+            "ribbon_targets_icons_swipe_right",
+            "ribbon_targets_icons_swipe_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] ENABLE_RIBBON_TEXT = new String[] {
+            "ribbon_text_lockscreen",
+            "ribbon_text_notification",
+            "ribbon_text_swipe",
+            "ribbon_text_quicksettings",
+            "ribbon_text_swipe_right",
+            "ribbon_text_swipe_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_TEXT_COLOR = new String[] {
+            "color_text_lockscreen",
+            "color_text_notification",
+            "color_text_swipe",
+            "color_text_quicksettings",
+            "color_text_swipe_right",
+            "color_text_swipe_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ICON_SIZE = new String[] {
+            "ribbon_icon_lockscreen",
+            "ribbon_icon_notification",
+            "ribbon_icon_swipe",
+            "ribbon_icon_quicksettings",
+            "ribbon_icon_swipe_right",
+            "ribbon_icon_swipe_bottom",
+        };
+
+        public static final String[] ENABLE_RIBBON_LOCATION = new String[] {
+            "ribbon_swipe_bottom",
+            "ribbon_swipe_left",
+            "ribbon_swipe_right",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ICON_SPACE = new String[] {
+            "ribbon_icon_lockscreen_space",
+            "ribbon_icon_notification_space",
+            "ribbon_icon_swipe_space_left",
+            "ribbon_icon_quicksettings_space",
+            "ribbon_icon_swipe_space_right",
+            "ribbon_icon_swipe_space_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ICON_VIBRATE = new String[] {
+            "ribbon_icon_lockscreen_vibrate",
+            "ribbon_icon_notification_vibrate",
+            "ribbon_icon_swipe_vibrate",
+            "ribbon_icon_quicksettings_vibrate",
+            "ribbon_icon_swipe_vibrate_right",
+            "ribbon_icon_swipe_vibrate_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ICON_COLORIZE = new String[] {
+            "ribbon_icon_lockscreen_colorize",
+            "ribbon_icon_notification_colorize",
+            "ribbon_icon_swipe_colorize",
+            "ribbon_icon_quicksettings_colorize",
+            "ribbon_icon_swipe_colorize_right",
+            "ribbon_icon_swipe_colorize_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_HIDE_TIMEOUT = new String[] {
+            "ribbon_hide_timeout_left",
+            "ribbon_hide_timeout_right",
+            "ribbon_hide_timeout_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] SWIPE_RIBBON_OPACITY = new String[] {
+            "swipe_ribbon_opacity_left",
+            "swipe_ribbon_opacity_right",
+            "swipe_ribbon_opacity_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] SWIPE_RIBBON_COLOR = new String[] {
+            "swipe_ribbon_color_left",
+            "swipe_ribbon_color_right",
+            "swipe_ribbon_color_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String RIBBON_DRAG_HANDLE_WEIGHT = "ribbon_drag_handle_weight";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String RIBBON_DRAG_HANDLE_LOCATION = "ribbon_drag_handle_location";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ICON_LOCATION = new String[] {
+            "ribbon_icon_location_left",
+            "ribbon_icon_location_right",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String SWIPE_RIBBON_VIBRATE = "swipe_ribbon_vibrate";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String RIBBON_DRAG_HANDLE_HEIGHT = "ribbon_drag_handle_height";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String RIBBON_DRAG_HANDLE_OPACITY = "ribbon_drag_handle_opacity";
 
         /**
          * Whether to show statusbar signal text
@@ -3817,139 +4021,6 @@ public final class Settings {
         public static final String LOCKSCREEN_USE_WIDGET_CONTAINER_CAROUSEL = "lockscreen_use_widget_container_carousel";
 
         /**
-         *
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] RIBBON_TARGETS_SHORT = new String[] {
-            "ribbon_targets_short_lockscreen",
-            "ribbon_targets_short_notification",
-            "ribbon_targets_short_swipe",
-            "ribbon_targets_short_quicksettings",
-        };
-
-        /**
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] RIBBON_TARGETS_LONG = new String[] {
-            "ribbon_targets_long_lockscreen",
-            "ribbon_targets_long_notification",
-            "ribbon_targets_long_swipe",
-            "ribbon_targets_long_quicksettings",
-        };
-
-        /**
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] RIBBON_TARGETS_ICONS = new String[] {
-            "ribbon_targets_icons_lockscreen",
-            "ribbon_targets_icons_notification",
-            "ribbon_targets_icons_swipe",
-            "ribbon_targets_icons_quicksettings",
-        };
-
-        /**
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] ENABLE_RIBBON_TEXT = new String[] {
-            "ribbon_text_lockscreen",
-            "ribbon_text_notification",
-            "ribbon_text_swipe",
-            "ribbon_text_quicksettings",
-        };
-
-        /**
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] RIBBON_TEXT_COLOR = new String[] {
-            "color_text_lockscreen",
-            "color_text_notification",
-            "color_text_swipe",
-            "color_text_quicksettings",
-        };
-
-        /**
-         * Ribbon Targets
-         *
-         * @hide
-         */
-        public static final String[] RIBBON_ICON_SIZE = new String[] {
-            "ribbon_icon_lockscreen",
-            "ribbon_icon_notification",
-            "ribbon_icon_swipe",
-            "ribbon_icon_quicksettings",
-        };
-
-        public static final String[] ENABLE_RIBBON_LOCATION = new String[] {
-            "ribbon_swipe_bottom",
-            "ribbon_swipe_left",
-            "ribbon_swipe_right",
-        };
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_HIDE_TIMEOUT = "ribbon_hide_timeout";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String SWIPE_RIBBON_OPACITY = "swipe_ribbon_opacity";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String SWIPE_RIBBON_COLOR = "swipe_ribbon_color";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_DRAG_HANDLE_WEIGHT = "ribbon_drag_handle_weight";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_DRAG_HANDLE_LOCATION = "ribbon_drag_handle_location";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_ICON_LOCATION = "ribbon_icon_location";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String SWIPE_RIBBON_VIBRATE = "swipe_ribbon_vibrate";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_DRAG_HANDLE_HEIGHT = "ribbon_drag_handle_height";
-
-        /**
-         *
-         * @hide
-         */
-        public static final String RIBBON_DRAG_HANDLE_OPACITY = "ribbon_drag_handle_opacity";
-
-         /*
          * Enable longpress on expand challenge handle to unlock device
          * @hide
          */
@@ -5891,6 +5962,20 @@ public final class Settings {
         public static final String UI_NIGHT_MODE = "ui_night_mode";
 
         /**
+         * Whether user activated inverted UI mode or default UI mode. Owned
+         * and controlled by UiModeManagerService.
+         * @hide
+         */
+        public static final String UI_INVERTED_MODE = "ui_inverted_mode";
+
+        /**
+         * force UI mode change for methods which are not observing
+         * UiModeManagerService
+         * @hide
+         */
+        public static final String UI_MODE_IS_TOGGLED = "ui_mode_is_toggled";
+
+        /**
          * Whether screensavers are enabled.
          * @hide
          */
@@ -5966,6 +6051,8 @@ public final class Settings {
             MOUNT_UMS_PROMPT,
             MOUNT_UMS_NOTIFY_ENABLED,
             UI_NIGHT_MODE,
+            UI_INVERTED_MODE,
+            UI_MODE_IS_TOGGLED,
             LOCK_SCREEN_OWNER_INFO,
             LOCK_SCREEN_OWNER_INFO_ENABLED
         };

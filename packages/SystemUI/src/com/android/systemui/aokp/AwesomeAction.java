@@ -1,6 +1,6 @@
 /*
- * Copyright 2011 AOKP by Mike Wilson - Zaphod-Beeblebrox
- *
+ * Copyright (C) 2013 Android Open Kang Project
+ * Modified by the PAC-man team
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -59,10 +59,15 @@ import com.android.systemui.statusbar.WidgetView;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.R;
 
+import com.android.systemui.statusbar.WidgetView;
+
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 
+/*
+ * Helper classes for managing AOKP custom actions
+ */
 public class AwesomeAction {
 
     public final static String TAG = "AwesomeAction";
@@ -121,7 +126,7 @@ public class AwesomeAction {
                 break;
             case ACTION_VIB:
                 if(am != null){
-                    if(am.getRingerMode() != AudioManager.RINGER_MODE_VIBRATE) {
+                    if (am.getRingerMode() != AudioManager.RINGER_MODE_VIBRATE) {
                         am.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
                         Vibrator vib = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
                         if(vib != null){
@@ -148,7 +153,7 @@ public class AwesomeAction {
                         }
                     }
                 }
-                break;
+            break;
             case ACTION_SILENT_VIB:
                 if(am != null){
                     if(am.getRingerMode() == AudioManager.RINGER_MODE_NORMAL) {
@@ -167,7 +172,7 @@ public class AwesomeAction {
                         }
                     }
                 }
-                break;
+            break;
             case ACTION_POWER:
                 injectKeyDelayed(KeyEvent.KEYCODE_POWER);
                 break;
@@ -175,9 +180,11 @@ public class AwesomeAction {
                 mContext.sendBroadcast(new Intent("android.settings.SHOW_INPUT_METHOD_PICKER"));
                 break;
             case ACTION_TORCH:
-                Intent i = new Intent("net.cactii.flash2.TOGGLE_FLASHLIGHT");
-                i.putExtra("bright", false);
-                mContext.sendBroadcast(i);
+                Intent intentTorch = new Intent("android.intent.action.MAIN");
+                intentTorch.setComponent(ComponentName.unflattenFromString("com.aokp.Torch/.TorchActivity"));
+                intentTorch.addCategory("android.intent.category.LAUNCHER");
+                intentTorch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                mContext.startActivity(intentTorch);
                 break;
             case ACTION_TODAY:
                 long startMillis = System.currentTimeMillis();

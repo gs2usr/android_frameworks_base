@@ -97,7 +97,7 @@ public class AwesomeConstants {
         Resources res = mContext.getResources();
         PackageManager pm = mContext.getPackageManager();
         int resId = 0;
-        Drawable d = res.getDrawable(com.android.internal.R.drawable.ic_empty);
+        Drawable d = res.getDrawable(com.android.internal.R.drawable.ic_action_empty);
         if (pm != null) {
             Resources mSystemUiResources = null;
             try {
