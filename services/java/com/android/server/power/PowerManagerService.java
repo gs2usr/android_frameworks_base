@@ -183,6 +183,7 @@ public final class PowerManagerService extends IPowerManager.Stub
     private WirelessChargerDetector mWirelessChargerDetector;
     private SettingsObserver mSettingsObserver;
     private DreamManagerService mDreamManager;
+    private AutoBrightnessHandler mAutoBrightnessHandler;
     private LightsService.Light mAttentionLight;
     private LightsService.Light mButtonsLight;
     private LightsService.Light mKeyboardLight;
@@ -302,6 +303,9 @@ public final class PowerManagerService extends IPowerManager.Stub
 
     // True if dreams should be activated on sleep.
     private boolean mDreamsActivateOnSleepSetting;
+
+    // True if dreams should be activated on wireless charging.
+    private boolean mDreamsActivateOnWirelessCharger;
 
     // True if dreams should be activated on dock.
     private boolean mDreamsActivateOnDockSetting;
@@ -428,6 +432,9 @@ public final class PowerManagerService extends IPowerManager.Stub
         // activity manager is not running when the constructor is called, so we
         // have to defer setting the screen state until this point.
         mDisplayBlanker.unblankAllDisplays();
+
+        mAutoBrightnessHandler = new AutoBrightnessHandler(context);
+
     }
 
     public void setPolicy(WindowManagerPolicy policy) {
@@ -555,6 +562,10 @@ public final class PowerManagerService extends IPowerManager.Stub
                 Settings.Secure.SCREENSAVER_ACTIVATE_ON_SLEEP,
                 mDreamsActivatedOnSleepByDefaultConfig ? 1 : 0,
                 UserHandle.USER_CURRENT) != 0);
+        mDreamsActivateOnWirelessCharger = (Settings.Secure.getIntForUser(resolver,
+                Settings.Secure.SCREENSAVER_ACTIVATE_ON_WIRELESS_CHARGE,
+                0, // disabled by default
+                UserHandle.USER_CURRENT) != 0);
         mDreamsActivateOnDockSetting = (Settings.Secure.getIntForUser(resolver,
                 Settings.Secure.SCREENSAVER_ACTIVATE_ON_DOCK,
                 mDreamsActivatedOnDockByDefaultConfig ? 1 : 0,
@@ -591,9 +602,14 @@ public final class PowerManagerService extends IPowerManager.Stub
             mTemporaryScreenAutoBrightnessAdjustmentSettingOverride = Float.NaN;
         }
 
+        final int oldScreenBrightnessModeSetting =
+                mScreenBrightnessModeSetting;
         mScreenBrightnessModeSetting = Settings.System.getIntForUser(resolver,
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL, UserHandle.USER_CURRENT);
+        if (oldScreenBrightnessModeSetting != mScreenBrightnessModeSetting) {
+            mAutoBrightnessHandler.onAutoBrightnessChanged(mScreenBrightnessModeSetting);
+        }
 
         mDirty |= DIRTY_SETTINGS;
     }
@@ -1491,9 +1507,12 @@ public final class PowerManagerService extends IPowerManager.Stub
      * activity timeout has expired and it's bedtime.
      */
     private boolean shouldNapAtBedTimeLocked() {
-        return mDreamsActivateOnSleepSetting
+        return (mDreamsActivateOnSleepSetting
+                        && mPlugType != BatteryManager.BATTERY_PLUGGED_WIRELESS)
                 || (mDreamsActivateOnDockSetting
-                        && mDockState != Intent.EXTRA_DOCK_STATE_UNDOCKED);
+                        && mDockState != Intent.EXTRA_DOCK_STATE_UNDOCKED)
+                || (mDreamsActivateOnWirelessCharger
+                        && mPlugType == BatteryManager.BATTERY_PLUGGED_WIRELESS);
     }
 
     /**

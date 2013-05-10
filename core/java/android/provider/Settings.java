@@ -1074,38 +1074,6 @@ public final class Settings {
         }
 
         /**
-         * @hide
-         * Methods to handle storing and retrieving arraylists
-         *
-         * @param cr The ContentResolver to access.
-         * @param name The name of the setting to modify.
-         * @param value The new value for the setting.
-         * @return true if the value was set, false on database errors
-         */
-        public static boolean putArrayList(ContentResolver cr, String name, ArrayList<String> list) {
-            if (list != null && list.size() > 0) {
-                String joined = TextUtils.join("|",list);
-                return putString(cr, name, joined);
-            } else {
-                return putString(cr, name, "");
-            }
-        }
-
-        public static ArrayList<String> getArrayList(ContentResolver cr, String name) {
-            String v = getString(cr, name);
-            ArrayList<String> list = new ArrayList<String>();
-            if (v != null) {
-              if (!v.isEmpty()){
-                String[] split = v.split("\\|");
-                for (String i : split) {
-                    list.add(i);
-	            }
-              }
-            }
-            return list;
-        }
-
-        /**
          * Convenience function for retrieving a single system settings value
          * as an integer.  Note that internally setting values are always
          * stored as strings; this function converts the string to an integer
@@ -1182,13 +1150,12 @@ public final class Settings {
          * or not a valid integer.
          */
         public static boolean getBoolean(ContentResolver cr, String name, boolean def) {
-            String resolved = getString(cr, name);
+            String v = getString(cr, name);
             try {
-                if(resolved != null) {
-                    return "1".equals(resolved);
-               } else {
+                if(v != null)
+                    return "1".equals(v);
+                else
                     return def;
-               }
             } catch (NumberFormatException e) {
                 return def;
             }
@@ -1232,6 +1199,36 @@ public final class Settings {
          */
         public static boolean putBoolean(ContentResolver cr, String name, boolean value) {
             return putString(cr, name, value ? "1" : "0");
+        }
+
+        /**
+         * @hide
+         * Methods to handle storing and retrieving arraylists
+         *
+         * @param cr The ContentResolver to access.
+         * @param name The name of the setting to modify.
+         * @param value The new value for the setting.
+         * @return true if the value was set, false on database errors
+         */
+        public static boolean putArrayList(ContentResolver cr, String name, ArrayList<String> list) {
+            if (list.size() > 0) {
+                String joined = TextUtils.join("|",list);
+                return putString(cr, name, joined);
+            }
+            return false;
+        }
+
+
+        public static ArrayList<String> getArrayList(ContentResolver cr, String name) {
+            String v = getString(cr, name);
+            ArrayList<String> list = new ArrayList<String>();
+            if (v != null) {
+                String[] split = v.split("\\|");
+                for (String i : split) {
+                    list.add(i);
+                }
+            }
+            return list;
         }
 
         /**
@@ -3274,6 +3271,15 @@ public final class Settings {
          public static final String KEY_ASSIST_ACTION = "key_assist_action";
 
          /**
+          * Swap volume buttons when the screen is rotated
+          * 0 - Disabled
+          * 1 - Enabled (screen is rotated by 90 or 180 degrees: phone, hybrid)
+          * 2 - Enabled (screen is rotated by 180 or 270 degrees: tablet)
+          * @hide
+          */
+         public static final String SWAP_VOLUME_KEYS_ON_ROTATION = "swap_volume_keys_on_rotation";
+
+         /**
           * Action to perform when the assistant (search) key is long-pressed. (Default is 4)
           * (See KEY_HOME_LONG_PRESS_ACTION for valid values)
           * @hide
@@ -3731,6 +3737,50 @@ public final class Settings {
             "navigation_bar_glow_duration_on",
         };
 
+        public static final String LOCKSCREEN_TARGETS_LONGPRESS = "lockscreen_targets_longpress";
+
+        /**
+         * @hide
+         */
+        public static final String[] LOCKSCREEN_TARGETS_SHORT = new String[] {
+            "lockscreen_targets_short_0",
+            "lockscreen_targets_short_1",
+            "lockscreen_targets_short_2",
+            "lockscreen_targets_short_3",
+            "lockscreen_targets_short_4",
+            "lockscreen_targets_short_5",
+            "lockscreen_targets_short_6",
+            "lockscreen_targets_short_7",
+        };
+
+        /**
+         * @hide
+         */
+        public static final String[] LOCKSCREEN_TARGETS_LONG = new String[] {
+            "lockscreen_targets_long_0",
+            "lockscreen_targets_long_1",
+            "lockscreen_targets_long_2",
+            "lockscreen_targets_long_3",
+            "lockscreen_targets_long_4",
+            "lockscreen_targets_long_5",
+            "lockscreen_targets_long_6",
+            "lockscreen_targets_long_7",
+        };
+
+        /**
+         * @hide
+         */
+        public static final String[] LOCKSCREEN_TARGETS_ICON = new String[] {
+            "lockscreen_targets_icon_0",
+            "lockscreen_targets_icon_1",
+            "lockscreen_targets_icon_2",
+            "lockscreen_targets_icon_3",
+            "lockscreen_targets_icon_4",
+            "lockscreen_targets_icon_5",
+            "lockscreen_targets_icon_6",
+            "lockscreen_targets_icon_7",
+        };
+
         /**       
          * Ribbon Targets
          *
@@ -3897,6 +3947,30 @@ public final class Settings {
          * @hide
          */
         public static final String RIBBON_DRAG_HANDLE_WEIGHT = "ribbon_drag_handle_weight";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_COLOR_BG = "app_window_color_bg";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_COLUMNS = "app_window_columns";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_COLOR_TEXT = "app_window_color_text";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_OPACITY = "app_window_opacity";
 
         /**
          *
@@ -6009,6 +6083,12 @@ public final class Settings {
          * @hide
          */
         public static final String SCREENSAVER_DEFAULT_COMPONENT = "screensaver_default_component";
+
+        /**
+         * If screensavers are enabled, whether the screensaver should be automatically launched
+         * when charging wirelessly.
+         */
+        public static final String SCREENSAVER_ACTIVATE_ON_WIRELESS_CHARGE = "screensaver_activate_on_wireless_charger";
 
         /**
          * This are the settings to be backed up.

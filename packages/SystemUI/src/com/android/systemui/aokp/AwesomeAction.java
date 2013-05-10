@@ -124,6 +124,11 @@ public class AwesomeAction {
                     WidgetView.WidgetReceiver.ACTION_TOGGLE_WIDGETS);
                 mContext.sendBroadcast(toggleWidgets);
                 break;
+            case ACTION_APP_WINDOW:
+                Intent appWindow = new Intent();
+                appWindow.setAction("com.android.systemui.ACTION_SHOW_APP_WINDOW");
+                mContext.sendBroadcast(appWindow);
+                break;
             case ACTION_VIB:
                 if(am != null){
                     if (am.getRingerMode() != AudioManager.RINGER_MODE_VIBRATE) {
@@ -180,11 +185,9 @@ public class AwesomeAction {
                 mContext.sendBroadcast(new Intent("android.settings.SHOW_INPUT_METHOD_PICKER"));
                 break;
             case ACTION_TORCH:
-                Intent intentTorch = new Intent("android.intent.action.MAIN");
-                intentTorch.setComponent(ComponentName.unflattenFromString("com.aokp.Torch/.TorchActivity"));
-                intentTorch.addCategory("android.intent.category.LAUNCHER");
-                intentTorch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                mContext.startActivity(intentTorch);
+                Intent i = new Intent("net.cactii.flash2.TOGGLE_FLASHLIGHT");
+                i.putExtra("bright", false);
+                mContext.sendBroadcast(i);
                 break;
             case ACTION_TODAY:
                 long startMillis = System.currentTimeMillis();
@@ -234,11 +237,11 @@ public class AwesomeAction {
                     Intent intentapp = Intent.parseUri(action, 0);
                     intentapp.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     mContext.startActivity(intentapp);
-                } catch (URISyntaxException e) {
-                    Log.e(TAG, "URISyntaxException: [" + action + "]");
-                } catch (ActivityNotFoundException e){
-                    Log.e(TAG, "ActivityNotFound: [" + action + "]");
-                }
+        } catch (URISyntaxException e) {
+            Log.e(TAG, "URISyntaxException: [" + action + "]");
+        } catch (ActivityNotFoundException e) {
+            Log.e(TAG, "ActivityNotFound: [" + action + "]");
+        }
                 break;
             }
             return true;
@@ -250,7 +253,8 @@ public class AwesomeAction {
         mHandler.removeCallbacks(onInjectKey_Down);
         mHandler.removeCallbacks(onInjectKey_Up);
         mHandler.post(onInjectKey_Down);
-        mHandler.postDelayed(onInjectKey_Up, 10);
+        mHandler.postDelayed(onInjectKey_Up, 10); // introduce small delay to
+                                                  // handle key press
     }
 
      public static class KeyDown implements Runnable {
@@ -287,8 +291,8 @@ public class AwesomeAction {
          private Context mContext;
          public KillTask(Context context) {
              this.mContext = context;
-         }
-         public void run() {
+        }
+        public void run() {
             final Intent intent = new Intent(Intent.ACTION_MAIN);
             final ActivityManager am = (ActivityManager) mContext
                     .getSystemService(Activity.ACTIVITY_SERVICE);
