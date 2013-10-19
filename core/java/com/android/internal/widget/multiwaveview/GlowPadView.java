@@ -759,6 +759,10 @@ public class GlowPadView extends View {
         }
     }
 
+    public boolean getMagneticTargets() {
+        return mMagneticTargets;
+    }
+
     /**
      * Starts wave animation.
      *
@@ -909,7 +913,7 @@ public class GlowPadView extends View {
         if (DEBUG && mDragging) Log.v(TAG, "** Handle CANCEL");
 
         // Drop the active target if canceled.
-        mActiveTarget = -1; 
+        mActiveTarget = -1;
 
         int actionIndex = event.findPointerIndex(mPointerId);
         actionIndex = actionIndex == -1 ? 0 : actionIndex;
@@ -1195,17 +1199,13 @@ public class GlowPadView extends View {
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-        final int width = right - left;
-        final int height = bottom - top;
 
         // Target placement width/height. This puts the targets on the greater of the ring
         // width or the specified outer radius.
         final float placementWidth = getRingWidth();
         final float placementHeight = getRingHeight();
-        float newWaveCenterX = mHorizontalInset
-                + Math.max(width, mMaxTargetWidth + placementWidth) / 2;
-        float newWaveCenterY = mVerticalInset
-                + Math.max(height, + mMaxTargetHeight + placementHeight) / 2;
+        float newWaveCenterX = mHorizontalInset + (mMaxTargetWidth + placementWidth) / 2;
+        float newWaveCenterY = mVerticalInset + (mMaxTargetHeight + placementHeight) / 2;
 
         if (mInitialLayout) {
             stopAndHideWaveAnimation();
@@ -1333,7 +1333,7 @@ public class GlowPadView extends View {
         if (mTargetDescriptions == null || mTargetDescriptions.isEmpty() || index >= mTargetDescriptions.size()) {
             mTargetDescriptions = loadDescriptions(mTargetDescriptionsResourceId);
             if (mTargetDrawables.size() != mTargetDescriptions.size()) {
-                Log.w(TAG, "The number of target drawables must be"
+                if (DEBUG) Log.v(TAG, "The number of target drawables must be"
                         + " equal to the number of target descriptions.");
                 return null;
             }
@@ -1345,7 +1345,7 @@ public class GlowPadView extends View {
         if (mDirectionDescriptions == null || mDirectionDescriptions.isEmpty() || index >= mDirectionDescriptions.size()) {
             mDirectionDescriptions = loadDescriptions(mDirectionDescriptionsResourceId);
             if (mTargetDrawables.size() != mDirectionDescriptions.size()) {
-                Log.w(TAG, "The number of target drawables must be"
+                if (DEBUG) Log.v(TAG, "The number of target drawables must be"
                         + " equal to the number of direction descriptions.");
                 return null;
             }

@@ -49,13 +49,15 @@ import android.os.UserHandle;
 import android.os.Build.VERSION_CODES;
 import android.speech.tts.TextToSpeech;
 import android.text.TextUtils;
+import android.text.util.QuickTileToken;
 import android.util.AndroidException;
 import android.util.Log;
-import android.view.WindowOrientationListener;
 
 import com.android.internal.widget.ILockSettings;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -275,7 +277,7 @@ public final class Settings {
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String ACTION_DISPLAY_SETTINGS =
             "android.settings.DISPLAY_SETTINGS";
-            
+
     /**
      * Activity Action: Show settings to allow configuration of display.
      * <p>
@@ -472,6 +474,18 @@ public final class Settings {
             "android.settings.APPLICATION_DETAILS_SETTINGS";
 
     /**
+     * @hide
+     * Activity Action: Show the "app ops" settings screen.
+     * <p>
+     * Input: Nothing.
+     * <p>
+     * Output: Nothing.
+     */
+    @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
+    public static final String ACTION_APP_OPS_SETTINGS =
+            "android.settings.APP_OPS_SETTINGS";
+
+    /**
      * Activity Action: Show settings for system update functionality.
      * <p>
      * In some cases, a matching Activity may not exist, so ensure you
@@ -515,6 +529,9 @@ public final class Settings {
      * The account types available to add may be restricted by adding an {@link #EXTRA_AUTHORITIES}
      * extra to the Intent with one or more syncable content provider's authorities.  Only account
      * types which can sync with that content provider will be offered to the user.
+     * <p>
+     * Account types can also be filtered by adding an {@link #EXTRA_ACCOUNT_TYPES} extra to the
+     * Intent with one or more account types.
      * <p>
      * Input: Nothing.
      * <p>
@@ -652,10 +669,25 @@ public final class Settings {
      * <p>
      * Output: Nothing.
      * @see android.service.dreams.DreamService
-     * @hide
      */
     @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
     public static final String ACTION_DREAM_SETTINGS = "android.settings.DREAM_SETTINGS";
+
+    /**
+     * Activity Action: Show Notification listener settings.
+     * <p>
+     * In some cases, a matching Activity may not exist, so ensure you
+     * safeguard against this.
+     * <p>
+     * Input: Nothing.
+     * <p>
+     * Output: Nothing.
+     * @see android.service.notification.NotificationListenerService
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
+    public static final String ACTION_NOTIFICATION_LISTENER_SETTINGS
+            = "android.settings.NOTIFICATION_LISTENER_SETTINGS";
 
     // End of Intent actions for Settings
 
@@ -698,8 +730,20 @@ public final class Settings {
      * Example: The {@link #ACTION_ADD_ACCOUNT} intent restricts the account types available based
      * on the authority given.
      */
-    public static final String EXTRA_AUTHORITIES =
-            "authorities";
+    public static final String EXTRA_AUTHORITIES = "authorities";
+
+    /**
+     * Activity Extra: Limit available options in launched activity based on the given account
+     * types.
+     * <p>
+     * This can be passed as an extra field in an Activity Intent with one or more account types
+     * as a String[]. This field is used by some intents to alter the behavior of the called
+     * activity.
+     * <p>
+     * Example: The {@link #ACTION_ADD_ACCOUNT} intent restricts the account types to the specified
+     * list.
+     */
+    public static final String EXTRA_ACCOUNT_TYPES = "account_types";
 
     public static final String EXTRA_INPUT_METHOD_ID = "input_method_id";
 
@@ -785,15 +829,20 @@ public final class Settings {
 
         public boolean putStringForUser(ContentResolver cr, String name, String value,
                 final int userHandle) {
-            try {
-                Bundle arg = new Bundle();
-                arg.putString(Settings.NameValueTable.VALUE, value);
-                arg.putInt(CALL_METHOD_USER_KEY, userHandle);
-                IContentProvider cp = lazyGetProvider(cr);
-                cp.call(mCallSetCommand, name, arg);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Can't set key " + name + " in " + mUri, e);
-                return false;
+            if (Arrays.asList(
+                    Settings.System.INSECURE_SETTINGS).contains(name)) {
+                NameValueTable.putString(cr, mUri, name, value);
+            } else {
+                try {
+                    Bundle arg = new Bundle();
+                    arg.putString(Settings.NameValueTable.VALUE, value);
+                    arg.putInt(CALL_METHOD_USER_KEY, userHandle);
+                    IContentProvider cp = lazyGetProvider(cr);
+                    cp.call(cr.getPackageName(), mCallSetCommand, name, arg);
+                } catch (RemoteException e) {
+                    Log.w(TAG, "Can't set key " + name + " in " + mUri, e);
+                    return false;
+                }
             }
             return true;
         }
@@ -837,7 +886,7 @@ public final class Settings {
                         args = new Bundle();
                         args.putInt(CALL_METHOD_USER_KEY, userHandle);
                     }
-                    Bundle b = cp.call(mCallGetCommand, name, args);
+                    Bundle b = cp.call(cr.getPackageName(), mCallGetCommand, name, args);
                     if (b != null) {
                         String value = b.getPairValue();
                         // Don't update our cache for reads of other users' data
@@ -862,7 +911,7 @@ public final class Settings {
 
             Cursor c = null;
             try {
-                c = cp.query(mUri, SELECT_VALUE, NAME_EQ_PLACEHOLDER,
+                c = cp.query(cr.getPackageName(), mUri, SELECT_VALUE, NAME_EQ_PLACEHOLDER,
                              new String[]{name}, null, null);
                 if (c == null) {
                     Log.w(TAG, "Can't get key " + name + " from " + mUri);
@@ -913,12 +962,14 @@ public final class Settings {
             MOVED_TO_SECURE.add(Secure.ANDROID_ID);
             MOVED_TO_SECURE.add(Secure.HTTP_PROXY);
             MOVED_TO_SECURE.add(Secure.LOCATION_PROVIDERS_ALLOWED);
+            MOVED_TO_SECURE.add(Secure.LOCK_BEFORE_UNLOCK);
             MOVED_TO_SECURE.add(Secure.LOCK_BIOMETRIC_WEAK_FLAGS);
             MOVED_TO_SECURE.add(Secure.LOCK_PATTERN_ENABLED);
             MOVED_TO_SECURE.add(Secure.LOCK_PATTERN_VISIBLE);
             MOVED_TO_SECURE.add(Secure.LOCK_SHOW_ERROR_PATH);
             MOVED_TO_SECURE.add(Secure.LOCK_DOTS_VISIBLE);
             MOVED_TO_SECURE.add(Secure.LOCK_PATTERN_TACTILE_FEEDBACK_ENABLED);
+            MOVED_TO_SECURE.add(Secure.LOCKSCREEN_UNSECURE_USED);
             MOVED_TO_SECURE.add(Secure.LOGGING_ID);
             MOVED_TO_SECURE.add(Secure.PARENTAL_CONTROL_ENABLED);
             MOVED_TO_SECURE.add(Secure.PARENTAL_CONTROL_LAST_UPDATE);
@@ -1024,6 +1075,20 @@ public final class Settings {
                 return Global.getStringForUser(resolver, name, userHandle);
             }
             return sNameValueCache.getStringForUser(resolver, name, userHandle);
+        }
+
+        /**
+         * Look up a name in the database.
+         * @param resolver to access the database with
+         * @param name to look up in the table
+         * @param defaultValue returned if value is null
+         * @return the corresponding value, or default if not present
+         */
+        public synchronized static String getString(ContentResolver resolver,
+                String name, String defaultValue) {
+
+            String value = getString(resolver, name);
+            return value == null ? defaultValue: value;
         }
 
         /**
@@ -1211,11 +1276,12 @@ public final class Settings {
          * @return true if the value was set, false on database errors
          */
         public static boolean putArrayList(ContentResolver cr, String name, ArrayList<String> list) {
-            if (list.size() > 0) {
+            if (list != null && list.size() > 0) {
                 String joined = TextUtils.join("|",list);
                 return putString(cr, name, joined);
+            } else {
+                return putString(cr, name, "");
             }
-            return false;
         }
 
 
@@ -1223,9 +1289,11 @@ public final class Settings {
             String v = getString(cr, name);
             ArrayList<String> list = new ArrayList<String>();
             if (v != null) {
-                String[] split = v.split("\\|");
-                for (String i : split) {
-                    list.add(i);
+                if (!v.isEmpty()){
+                    String[] split = v.split("\\|");
+                    for (String i : split) {
+                        list.add(i);
+                    }
                 }
             }
             return list;
@@ -1828,7 +1896,7 @@ public final class Settings {
          */
         public static final String AUTO_BRIGHTNESS_BACKLIGHT = "auto_brightness_backlight";
 
-		/**
+        /**
          * Touch Key Light Duration
          *
          * @hide
@@ -1836,10 +1904,49 @@ public final class Settings {
         public static final String TOUCHKEY_LIGHT_DUR = "touchkey_light_dir";
 
         /**
+         * Correction factor for auto-brightness adjustment light sensor
+         * debounce times.
+         * Smaller factors will make the adjustment more responsive, but might
+         * cause flicker and/or cause higher CPU usage.
+         * Valid range is 0.2 ... 3
+         *
+         * @hide
+         */
+        public static final String AUTO_BRIGHTNESS_RESPONSIVENESS = "auto_brightness_responsiveness";
+
+        /**
          * Whether to enable the electron beam animation when turning screen on
          *
          * @hide */
         public static final String ELECTRON_BEAM_ANIMATION_ON = "electron_beam_animation_on";
+        /**
+         * Whether to enable adjustment of automatic brightness adjustment
+         * to sunrise and sunset.
+         * @hide
+         */
+        public static final String AUTO_BRIGHTNESS_TWILIGHT_ADJUSTMENT = "auto_brightness_twilight_adjustment";
+
+        /**
+         * The keyboard brightness to be used while the screen is on.
+         * Valid value range is between 0 and {@link PowerManager#getMaximumKeyboardBrightness()}
+         * @hide
+         */
+        public static final String KEYBOARD_BRIGHTNESS = "keyboard_brightness";
+
+        /**
+         * The button brightness to be used while the screen is on or after a button press,
+         * depending on the value of {@link BUTTON_BACKLIGHT_TIMEOUT}.
+         * Valid value range is between 0 and {@link PowerManager#getMaximumButtonBrightness()}
+         * @hide
+         */
+        public static final String BUTTON_BRIGHTNESS = "button_brightness";
+
+        /**
+         * The time in ms to keep the button backlight on after pressing a button.
+         * A value of 0 will keep the buttons on for as long as the screen is on.
+         * @hide
+         */
+        public static final String BUTTON_BACKLIGHT_TIMEOUT = "button_backlight_timeout";
 
         /**
          * Whether to enable the electron beam animation when turning screen off
@@ -1880,6 +1987,12 @@ public final class Settings {
         public static final int VOLUME_OVERLAY_EXPANDED = 2;
         /** @hide */
         public static final int VOLUME_OVERLAY_NONE = 3;
+
+        /**
+         * Lock Volume Keys, Whether to lock ringer volume changes in silent mode.
+         * @hide
+         */
+        public static final String LOCK_VOLUME_KEYS = "lock_volume_keys";
 
         /**
          * Volume Adjust Sounds Enable, This is the noise made when using volume hard buttons
@@ -2000,6 +2113,55 @@ public final class Settings {
         @Deprecated
         public static final String NOTIFICATIONS_USE_RING_VOLUME =
             "notifications_use_ring_volume";
+
+        /**
+         * Whether the blacklisting feature for phone calls is enabled
+         * @hide
+         */
+        public static final String PHONE_BLACKLIST_ENABLED = "phone_blacklist_enabled";
+
+        /**
+         * Whether a notification should be shown when a call/message is blocked
+         * @hide
+         */
+        public static final String PHONE_BLACKLIST_NOTIFY_ENABLED = "phone_blacklist_notify_enabled";
+
+        /**
+         * Whether the blacklisting feature for phone calls from private numbers is enabled
+         * @hide
+         */
+        public static final String PHONE_BLACKLIST_PRIVATE_NUMBER_MODE = "phone_blacklist_private_number_enabled";
+
+        /**
+         * Whether the blacklisting feature for phone calls from unknown numbers is enabled
+         * @hide
+         */
+        public static final String PHONE_BLACKLIST_UNKNOWN_NUMBER_MODE = "phone_blacklist_unknown_number_enabled";
+
+        /**
+         * Constants to be used for {@link PHONE_BLACKLIST_PRIVATE_NUMBER_MODE} and
+         * {@link PHONE_BLACKLIST_UNKNOWN_NUMBER_MODE}.
+         * @hide
+         */
+        public static final int BLACKLIST_DO_NOT_BLOCK = 0;
+        /**
+         * @hide
+         */
+        public static final int BLACKLIST_BLOCK = 1;
+        /**
+         * @hide
+         */
+        public static final int BLACKLIST_PHONE_SHIFT = 0;
+        /**
+         * @hide
+         */
+        public static final int BLACKLIST_MESSAGE_SHIFT = 4;
+
+        /**
+         * Whether the regex blacklisting feature for phone calls is enabled
+         * @hide
+         */
+        public static final String PHONE_BLACKLIST_REGEX_ENABLED = "phone_blacklist_regex_enabled";
 
         /**
          * Whether the phone ringtone should be played in an increasing manner
@@ -2372,6 +2534,12 @@ public final class Settings {
         public static final String NOTIFICATION_LIGHT_PULSE_VMAIL_LED_OFF = "notification_light_pulse_vmail_led_off";
 
         /**
+         * Whether to use the custom LED values for the notification pulse LED.
+         * @hide
+         */
+        public static final String NOTIFICATION_LIGHT_PULSE_CUSTOM_ENABLE = "notification_light_pulse_custom_enable";
+
+        /**
          * Which custom LED values to use for the notification pulse LED.
          * @hide
          */
@@ -2481,6 +2649,19 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_TARGETS = "lockscreen_targets";
+
+        /**
+         * Stores values for custom # of lockscreen targets
+         * @hide
+         */
+        public static final String LOCKSCREEN_TARGETS_USE_EIGHT = "lockscreen_targets_use_eight";
+
+        /**
+         * Whether music controls should be shown on the lockscreen if a supporting
+         * music player is active.
+         * @hide
+         */
+        public static final String LOCKSCREEN_MUSIC_CONTROLS = "lockscreen_music_controls";
 
         /**
          * @deprecated Use {@link android.provider.Settings.Global#LOW_BATTERY_SOUND}
@@ -2597,19 +2778,90 @@ public final class Settings {
          */
         public static final String QUICK_SETTINGS_TILES = "quick_settings_tiles";
 
-	/**
-         * number of tiles per row in quick settings
-         *
-         * @hide
-         */
-        public static final String QUICK_TILES_PER_ROW = "quick_tiles_per_row";
+       /**
+        * Quick Settings Tiles constants
+        * @hide
+        */
+        public static final String QUICK_AIRPLANE = "QuickAirplane";
+    	public static final String QUICK_ROTATE = "QuickRotate";
+    	public static final String QUICK_BRIGHTNESS = "QuickBrightness";
+    	public static final String QUICK_BLUETOOTH = "QuickBluetooth";
+    	public static final String QUICK_NODISTURB = "QuickNoDisturb";
+    	public static final String QUICK_TORCH = "QuickTorch";
+    	public static final String QUICK_SETTING = "QuickSetting";
+    	public static final String QUICK_WIFI = "QuickWifi";
+    	public static final String QUICK_VOLUME = "QuickVolume";
+    	public static final String QUICK_LTE = "QuickLTE";
+    	public static final String QUICK_CUSTOM = "QuickCustom";
+    	public static final String QUICK_ADB = "QuickAdb";
+    	public static final String QUICK_GPS = "QuickGPS";
+    	public static final String QUICK_MOBILE_DATA = "QuickMobileData";
+    	public static final String QUICK_SYNC = "QuickSync";
+    	public static final String QUICK_MEDIA = "QuickMedia";
+    	public static final String QUICK_HOTSPOT = "QuickHotspot";
+    	public static final String QUICK_TETHER = "QuickTether";
+    	public static final String QUICK_SIGNAL = "QuickSignal";
+    	public static final String QUICK_BATTERY = "QuickBattery";
+    	public static final String QUICK_ALARM = "QuickAlarm";
+    	public static final String QUICK_USER = "QuickUser";
+    	public static final String QUICK_QUIET_HOURS = "QuickQuietHours";
+
+    	// do not use anything here that may not work on ALL devices
+        public static String QUICK_TILES_DEFAULT = 
+                new QuickTileToken(Settings.System.QUICK_USER,1,1).toString()
+                + '|' + new QuickTileToken(Settings.System.QUICK_AIRPLANE,1,1).toString()
+    			+ '|' + new QuickTileToken(Settings.System.QUICK_MEDIA,1,1).toString()
+    			+ '|' + new QuickTileToken(Settings.System.QUICK_BLUETOOTH,1,1).toString()
+    			+ '|' + new QuickTileToken(Settings.System.QUICK_ROTATE,1,1).toString()
+    			+ '|' + new QuickTileToken(Settings.System.QUICK_BRIGHTNESS,1,1).toString()
+    			+ '|' + new QuickTileToken(Settings.System.QUICK_SETTING,1,1).toString();
+
+        public static final String QUICK_SETTINGS_CUSTOM = "quick_tiles_custom";
 
         /**
          * number of tiles per row in quick settings
          *
          * @hide
          */
+        public static final String QUICK_TILES_PER_ROW = "quick_tiles_per_row";
+
+        public static final String CUSTOM_BATTERY_PACKAGE = "custom_batt_icon";
+        public static final String CUSTOM_SIGNAL_PACKAGE = "custom_signal_icons";
+        /**
+         * number of tiles per row in quick settings
+         *
+         * @hide
+         */
         public static final String QUICK_TILES_PER_ROW_DUPLICATE_LANDSCAPE = "quick_tiles_per_row_duplicate_landscape";
+
+        /**
+         * Animate-flip Quick Settings Panel Tiles on click
+         *
+         * @hide
+         */
+        public static final String QUICK_SETTINGS_TILES_FLIP = "quick_settings_tiles_flip";
+
+        /**
+         * qs tiles background color
+         *
+         * @hide
+         */
+        public static final String QUICK_TILES_BG_COLOR = "quick_tiles_bg_color";
+
+        /**
+         * qs tiles background color on pressed
+         *
+         * @hide
+         */
+        public static final String QUICK_TILES_BG_PRESSED_COLOR = "quick_tiles_bg_pressed_color";
+
+        /**
+         * qs tiles background color
+         *
+         * @hide
+         */
+        public static final String QUICK_TILES_BG_COLOR_RANDOM = "quick_tiles_bg_color_random";
+
         /**
          * Quick Settings Panel Dynamic Tiles
          *
@@ -2674,6 +2926,80 @@ public final class Settings {
         public static final String QS_DISABLE_PANEL = "qs_disable_panel";
 
         /**
+         * HALO enabled, should default to 0 (HALO is disabled)
+         * @hide
+         */
+        public static final String HALO_ENABLED = "halo_enabled";
+
+        /*
+         * HALO, should default to 0 (no, do not show)
+         * @hide
+         */
+        public static final String HALO_ACTIVE = "halo_active";
+
+        /**
+         * HALO reversed?, should default to 1 (yes, reverse)
+         * @hide
+         */
+        public static final String HALO_REVERSED = "halo_reversed";
+
+        /**
+         * HALO hide?, should default to 0 (no, do not hide)
+         * @hide
+         */
+        public static final String HALO_HIDE = "halo_hide";
+
+        /**
+         * HALO colors
+         * @hide
+         */
+        public static final String HALO_COLORS = "halo_colors";
+
+        /**
+         * HALO effect color
+         * @hide
+         */
+        public static final String HALO_EFFECT_COLOR = "halo_effect_color";
+
+        /**
+         * HALO circle bg color
+         * @hide
+         */
+        public static final String HALO_CIRCLE_COLOR = "halo_circle_color";
+
+        /**
+         * HALO speech bubble color
+         * @hide
+         */
+        public static final String HALO_BUBBLE_COLOR = "halo_bubble_color";
+
+        /**
+         * HALO speech bubble text color
+         * @hide
+         */
+        public static final String HALO_BUBBLE_TEXT_COLOR = "halo_bubble_text_color";
+
+        /**
+         * HALO size fraction, default is 1.0f (normal)
+         * @hide
+         */
+        public static final String HALO_SIZE = "halo_size";
+
+        /**
+         * HALO pause activities?, defaults to 0 (no, do not pause) on devices which isLargeRAM() == true
+         * otherwise it defaults to 1 (yes, do pause)
+         * @hide
+         */
+        public static final String HALO_PAUSE = "halo_pause";
+
+        /**
+         * Quick Settings Launch in Floating Window
+         *
+         * @hide
+         */
+        public static final String QS_FLOATING_WINDOW = "qs_floating_window";
+
+        /**
          * Use the Notification Power Widget? (Who wouldn't!)
          *
          * @hide
@@ -2693,6 +3019,7 @@ public final class Settings {
          *
          * @hide
          */
+
         public static final String EXPANDED_HIDE_SCROLLBAR = "expanded_hide_scrollbar";
 
         /**
@@ -2753,44 +3080,11 @@ public final class Settings {
         public static final String COMBINED_BAR_AUTO_HIDE = "combined_bar_auto_hide";
 
         /**
-         * Display style of AM/PM next to clock in status bar
-         * 0: Normal display (Eclair stock)
-         * 1: Small display (Froyo stock)
-         * 2: No display (Gingerbread/ICS stock)
-         * default: 2
+         * Network speed indicator
          * @hide
          */
-        public static final String STATUS_BAR_AM_PM = "status_bar_am_pm";
+        public static final String STATUS_BAR_TRAFFIC = "status_bar_traffic";
 
-        /**
-         * Display style of the status bar battery information
-         * 0: Display the stock battery information
-         * 1: Display cm battery percentage implementation / dont show stock icon
-         * 2: Hide the battery information
-         * default: 0
-         * @hide
-         */
-        public static final String STATUS_BAR_BATTERY = "status_bar_battery";
-
-        /**
-         * Whether to show the clock in status bar
-         * of the stock battery icon
-         * 0: don't show the clock
-         * 1: show the clock
-         * default: 1
-         * @hide
-         */
-        public static final String STATUS_BAR_CLOCK = "status_bar_clock";
-
-        /**
-         * Whether to show the signal text or signal bars.
-         * default: 0
-         * 0: show signal bars
-         * 1: show signal text numbers
-         * 2: show signal text numbers w/small dBm appended
-         * @hide
-         */
-        public static final String STATUS_BAR_SIGNAL_TEXT = "status_bar_signal";
 
          /**
          * Whether to control brightness from status bar
@@ -2806,16 +3100,40 @@ public final class Settings {
         public static final String STATUS_BAR_IME_SWITCHER = "status_bar_ime_switcher";
 
         /**
+         * HALO ninja?, should default to 0 (no, do not disappear when empty)
+         * @hide
+         */
+        public static final String HALO_NINJA = "halo_ninja";
+
+        /**
+         * HALO message box?, should default to 1 (yes, show message box on incoming notification)
+         * @hide
+         */
+        public static final String HALO_MSGBOX = "halo_msgbox";
+
+        /**
+         * HALO notificatoin count?, should default to 4 (both)
+         * @hide
+         */
+        public static final String HALO_NOTIFY_COUNT = "halo_notify_count";
+
+        /**
+         * HALO message box animation?, should default to 2 (flip animation)
+         * @hide
+         */
+        public static final String HALO_MSGBOX_ANIMATION = "halo_msgbox_animation";
+
+        /**
+         * HALO unlock ping?, should default to 0 (no, do not ping on unlock)
+         * @hide
+         */
+        public static final String HALO_UNLOCK_PING = "halo_unlock_ping";
+
+         /**
          * Expanded desktop on/off state
          * @hide
          */
         public static final String EXPANDED_DESKTOP_STATE = "expanded_desktop_state";
-		
-       /**
-	* Restart Launcher
-	* @hide
-	*/
-        public static final String EXPANDED_DESKTOP_RESTART_LAUNCHER = "expanded_desktop_restart_launcher";
 
        /**
         * Override and forcefully disable the fullscreen keyboard
@@ -2849,6 +3167,19 @@ public final class Settings {
          * @hide
          */
         public static final String SCREEN_LOCK_SLIDE_SCREENOFF_DELAY = "screen_lock_slide_screenoff_delay";
+
+        /**
+         * Whether Status bar can be shown by swiping down in fullscreen apps
+         * @hide
+         */
+        public static final String FULLSCREEN_STATUSBAR = "fullscreen_statusbar";
+
+        /**
+         * Timeout of fullscreen Status bar
+         * @hide
+         */
+        public static final String FULLSCREEN_STATUSBAR_TIMEOUT = "fullscreen_statusbar_timeout";
+
 
         /**
          * Whether to link ringtone and notification volumes
@@ -2960,6 +3291,12 @@ public final class Settings {
          */
         public static final String PIE_STICK = "pie_stick";
 
+       /**
+         * Pie power, should default to 0 (no, show only when needed)
+         * @hide
+         */
+         public static final String PIE_POWER = "pie_power";
+
         /**
          * Center Pie? Should default to 1 (yes, center)
          * @hide
@@ -2973,10 +3310,34 @@ public final class Settings {
         public static final String PIE_SEARCH = "pie_search";
 
         /**
-         * Pie gap angle, should default to 3
+         * Pie last app, should default to 0 (no, show only when needed)
+         * @hide
+         */
+        public static final String PIE_LAST_APP = "pie_last_app";
+
+        /**
+         * Pie kill task, default to 0 (off)
+         * @hide
+         */
+        public static final String PIE_KILL_TASK = "pie_kill_task";
+
+        /**
+         * Pie app window, default to 0 (off)
+         * @hide
+         */
+        public static final String PIE_APP_WINDOW = "pie_app_window";
+
+        /**
+         * Pie gap angle, should default to 2
          * @hide
          */
         public static final String PIE_GAP = "pie_gap";
+
+        /**
+         * Pie empty angle, should default to 12
+         * @hide
+         */
+        public static final String PIE_ANGLE = "pie_angle";
 
         /**
          * Pie trigger fraction, should default to 1
@@ -3005,7 +3366,7 @@ public final class Settings {
         public static final String PIE_MODE = "pie_mode";
 
         /**
-         * Pie size fraction
+         * Pie size fraction, default is 1.0f (normal)
          * @hide
          */
         public static final String PIE_SIZE = "pie_size";
@@ -3095,21 +3456,37 @@ public final class Settings {
         public static final String STATUS_BAR_DONOTDISTURB = "status_bar_donotdisturb";
 
         /**
+         * @hide
+         */
+        public static final String WEATHER_PANEL_LONGCLICK = "weather_panel_longclick";
+
+        /**
+         * @hide
+         */
+        public static final String WEATHER_PANEL_SHORTCLICK = "weather_panel_shortclick";
+
+        /**
+         * How to show weather on the statusbar
+         *
+         * @hide
+         */
+        public static final String STATUSBAR_WEATHER_STYLE = "statusbar_weather_style";
+
+        /**
+         * @hide
+         */
+        public static final String USE_WEATHER = "use_weather";
+
+        /**
+         * @hide
+         */
+        public static final String WEATHER_SHOW_LOCATION = "weather_show_location";
+
+        /**
          * Maximal notification count as overlays on the status bar
          * @hide
          */
         public static final String MAX_NOTIFICATION_ICONS = "max_notification_icons";
-
-        /**
-         * Quick Settings Panel Tiles to Use
-         * @hide
-         */
-        public static final String QUICK_SETTINGS = "quick_settings";
-
-        /**
-         * QuickSettings panel dynamic alarm tile
-         * @hide
-         */
 
         /**
          * Volume keys control cursor in text fields (default is 0)
@@ -3351,7 +3728,7 @@ public final class Settings {
          * @hide
          */
         public static final String STATUSBAR_CLOCK_WEEKDAY = "statusbar_clock_weekday";
-        
+
         /**
         * Shows date before clock time
         * 0 - No Date
@@ -3359,16 +3736,16 @@ public final class Settings {
         * @hide
         */
         public static final String STATUSBAR_CLOCK_DATE_DISPLAY = "statusbar_clock_date_display";
-        
+
         /**
         * Shows month before clock time
         * 0 - No Month
-        * 1 - Small Month 
-        * 2 - Normal/Long Month 
+        * 1 - Small Month
+        * 2 - Normal/Long Month
         * @hide
         */
         public static final String STATUSBAR_CLOCK_MONTH_DISPLAY = "statusbar_clock_month";
-        
+
         /**
         * Sets the date string style
         * 0 - Regular style
@@ -3441,16 +3818,37 @@ public final class Settings {
          */
         public static final String VOLUME_MUSIC_CONTROLS = "volume_music_controls";
 
-        /**
-         * whether to hide the Ram Usage Bar on recent switcher
-         *
-         * @hide
-         */
-        public static final String RAM_USAGE_BAR = "ram_usage_bar";
+       /**
+        * whether which Ram Usage Bar mode is used on recent switcher
+        * 0 = none, 1 = only app use, 2 = app and cache use, 3 = app, cache and system use
+        * @hide
+        */
+        public static final String RECENTS_RAM_BAR_MODE = "recents_ram_bar_mode";
+
+       /**
+        * Ram Usage Bar system mem color
+        *
+        * @hide
+        */
+        public static final String RECENTS_RAM_BAR_MEM_COLOR = "recents_ram_bar_mem_color";
+
+       /**
+        * Ram Usage Bar cached mem color
+        *
+        * @hide
+        */
+        public static final String RECENTS_RAM_BAR_CACHE_COLOR = "recents_ram_bar_cache_color";
+
+       /**
+        * Ram Usage Bar app mem color
+        *
+        * @hide
+        */
+        public static final String RECENTS_RAM_BAR_ACTIVE_APPS_COLOR = "recents_ram_bar_active_apps_color";
 
        /**
         * Key to store Torch state.
-        * @hide 
+        * @hide
         */
         public static final String TORCH_STATE = "torch_state";
 
@@ -3512,6 +3910,21 @@ public final class Settings {
                 "navring_long_4",
         };
 
+        public static final String[] ACTIVITY_ANIMATION_CONTROLS = new String[] {
+                "activity_open",
+                "activity_close",
+                "task_open",
+                "task_close",
+                "task_to_front",
+                "task_to_back",
+                "wallpaper_open",
+                "wallpaper_close",
+                "wallpaper_intra_open",
+                "wallpaper_intra_close",
+        };
+
+        public static final String ANIMATION_CONTROLS_DURATION = "animation_controls_duration";
+        public static final String ANIMATION_CONTROLS_NO_OVERRIDE = "animation_controls_no_override";
         /**
          * Custom navring icons
          *
@@ -3527,14 +3940,14 @@ public final class Settings {
 
         /**
          * How long to keep the notification LED on (in milliseconds)
-         * 
+         *
          * @hide
          */
         public static final String NOTIFICATION_LIGHT_ON = "notification_light_on";
 
         /**
          * How long to keep the notification LED off (in milliseconds)
-         * 
+         *
          * @hide
          */
         public static final String NOTIFICATION_LIGHT_OFF = "notification_light_off";
@@ -3614,7 +4027,7 @@ public final class Settings {
 
         /**
          * Current UI Mode
-         * 
+         *
          *  0 = Phone UI
          *  1 = Tablet UI
          *  2 = Phablet UI
@@ -3624,7 +4037,7 @@ public final class Settings {
 
         /**
          * User selected UI Mode
-         * 
+         *
          *  0 = Phone UI
          *  1 = Tablet UI
          *  2 = Phablet UI
@@ -3643,7 +4056,19 @@ public final class Settings {
          * @hide
          */
         public static final String POWER_DIALOG_SHOW_NAVBAR_HIDE = "power_dialog_show_navbar_hide";
-        
+
+        /**
+         *
+         * @hide
+         */
+        public static final String NAVIGATION_BAR_WIDTH_PORT = "navigation_bar_width_port";
+
+        /**
+        *
+        * @hide
+        */
+        public static final String NAVIGATION_BAR_WIDTH_LAND = "navigation_bar_width_land";
+
         /**
          * Show the Reboot on lockscreen dialog in Power menu
          * @hide
@@ -3781,7 +4206,7 @@ public final class Settings {
             "lockscreen_targets_icon_7",
         };
 
-        /**       
+        /**
          * Ribbon Targets
          *
          * @hide
@@ -3946,7 +4371,61 @@ public final class Settings {
          *
          * @hide
          */
-        public static final String RIBBON_DRAG_HANDLE_WEIGHT = "ribbon_drag_handle_weight";
+        public static final String[] RIBBON_LONG_PRESS = new String[] {
+            "ribbon_long_press_left",
+            "ribbon_long_press_right",
+            "ribbon_long_press_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_LONG_SWIPE = new String[] {
+            "ribbon_long_swipe_left",
+            "ribbon_long_swipe_right",
+            "ribbon_long_swipe_bottom",
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ANIMATION_DURATION = new String[] {
+            "ribbon_animation_duration_left",
+            "ribbon_animation_duration_right",
+            "ribbon_animation_duration_bottom",
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_DISMISS = new String[] {
+            "ribbon_left_dismiss",
+            "ribbon_right_dismiss",
+            "ribbon_bottom_dismiss",
+
+        };
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_ANIMATION_DURATION = "app_window_animation_duration";
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_DRAG_HANDLE_WEIGHT = new String[] {
+            "ribbon_drag_handle_weight_left",
+            "ribbon_drag_handle_weight_right",
+            "ribbon_drag_handle_weight_bottom",
+
+        };
 
         /**
          *
@@ -3976,7 +4455,72 @@ public final class Settings {
          *
          * @hide
          */
-        public static final String RIBBON_DRAG_HANDLE_LOCATION = "ribbon_drag_handle_location";
+        public static final String APP_WINDOW_HIDDEN_APPS = "app_window_hidden_apps";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_ANIMATION_TYPE = "app_window_animation_type";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String LAUNCH_APP_ANIMATION = "launch_app_animation";
+
+        /**
+         *
+         * @hide
+         */
+        public static final String APP_WINDOW_SPACING = "app_window_spacing";
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_DRAG_HANDLE_LOCATION = new String[] {
+            "ribbon_drag_handle_location_left",
+            "ribbon_drag_handle_location_right",
+            "ribbon_drag_handle_location_bottom",
+
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_HIDE_IME = new String[] {
+            "ribbon_hide_ime_left",
+            "ribbon_hide_ime_right",
+            "ribbon_hide_ime_bottom",
+
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_TOGGLE_BUTTON_LOCATION = new String[] {
+            "ribbon_toggle_button_location_left",
+            "ribbon_toggle_button_location_right",
+            "ribbon_toggle_button_location_bottom",
+
+        };
+
+        /**
+         * Ribbon Targets
+         *
+         * @hide
+         */
+        public static final String[] RIBBON_ANIMATION_TYPE = new String[] {
+            "ribbon_animation_type_left",
+            "ribbon_animation_type_right",
+            "ribbon_animation_type_bottom",
+        };
 
         /**
          *
@@ -3988,22 +4532,53 @@ public final class Settings {
         };
 
         /**
+         * Ribbon Targets
          *
          * @hide
          */
-        public static final String SWIPE_RIBBON_VIBRATE = "swipe_ribbon_vibrate";
+        public static final String[] SWIPE_RIBBON_VIBRATE = new String[] {
+            "swipe_ribbon_vibrate_left",
+            "swipe_ribbon_vibrate_right",
+            "swipe_ribbon_vibrate_bottom",
+
+        };
 
         /**
+         * Ribbon Targets
          *
          * @hide
          */
-        public static final String RIBBON_DRAG_HANDLE_HEIGHT = "ribbon_drag_handle_height";
+        public static final String[] RIBBON_DRAG_HANDLE_HEIGHT = new String[] {
+            "ribbon_drag_handle_height_left",
+            "ribbon_drag_handle_height_right",
+            "ribbon_drag_handle_height_bottom",
+
+        };
 
         /**
+         * Ribbon Targets
          *
          * @hide
          */
-        public static final String RIBBON_DRAG_HANDLE_OPACITY = "ribbon_drag_handle_opacity";
+        public static final String[] RIBBON_DRAG_HANDLE_OPACITY = new String[] {
+            "ribbon_drag_handle_opacity_left",
+            "ribbon_drag_handle_opacity_right",
+            "ribbon_drag_handle_opacity_bottom",
+
+        };
+
+        /**
+         * Whether Status bar should be hiidden when there are no
+         * notifications
+         * @hide
+         */
+        public static final String AUTO_HIDE_STATUSBAR = "auto_hide_statusbar";
+
+        /**
+         * Whether Status Bar is currently hidden or not
+         * @hide
+         */
+        public static final String HIDE_STATUSBAR = "hide_statusbar";
 
         /**
          * Whether to show statusbar signal text
@@ -4082,6 +4657,13 @@ public final class Settings {
          */
         public static final String LOCKSCREEN_HIDE_INITIAL_PAGE_HINTS = "lockscreen_hide_initial_page_hints";
 
+         /**
+          * Action to perform when the home key is double-tapped. (Default is 0)
+          * (See KEY_HOME_LONG_PRESS_ACTION for valid values)
+          * @hide
+          */
+         public static final String KEY_HOME_DOUBLE_TAP_ACTION = "key_home_double_tap_action";
+
         /**
          * Whether to minimize lockscreen challenge on screen turned on
          * @hide
@@ -4118,6 +4700,154 @@ public final class Settings {
          * @hide
          */
         public static final String MUTE_ANNOYING_NOTIFICATIONS_THRESHOLD = "mute_annoying_notifications_threshold";
+
+        /**
+         * @hide
+         */
+        public static final String THEME_WALLPAPER = "theme_wallpaper";
+
+        /**
+         * Volume key controls ringtone or media sound stream
+         *
+         * @hide
+         */
+        public static final String VOLUME_KEYS_CONTROL_RING_STREAM = "volume_keys_control_ring_stream";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_ONE = "gesture_one";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_TWO = "gesture_two";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_THREE = "gesture_three";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_FOUR = "gesture_four";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_TYPE_ONE = "gesture_type_one";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_TYPE_TWO = "gesture_type_two";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_TYPE_THREE = "gesture_type_three";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_TYPE_FOUR = "gesture_type_four";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_APP_ONE = "gesture_app_one";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_APP_TWO = "gesture_app_two";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_APP_THREE = "gesture_app_three";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_APP_FOUR = "gesture_app_four";
+
+        /**
+         * @hide
+         */
+        public static final String TOUCH_ZONE_ONE = "touch_zone_one";
+
+        /**
+         * @hide
+         */
+        public static final String TOUCH_ZONE_TWO = "touch_zone_two";
+
+        /**
+         * @hide
+         */
+        public static final String TOUCH_ZONE_THREE = "touch_zone_three";
+
+        /**
+         * @hide
+         */
+        public static final String TOUCH_ZONE_FOUR = "touch_zone_four";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_SWIPE = "gesture_swipe";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_SWIPE_CAPTURE = "gesture_swipe_capture";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_SWIPE_DISTANCE = "gesture_swipe_distance";
+
+        /**
+         * @hide
+         */
+        public static final String SHOW_GESTURES = "show_gestures";
+
+        /**
+         * @hide
+         */
+        public static final String GESTURE_BLACKLIST = "gesture_blacklist";
+
+        /**
+         * Notifications Expand Behavior
+         * @hide
+         */
+        public static final String NOTIFICATIONS_BEHAVIOUR = "notifications_behaviour";
+
+        /**
+         * Give SMS Notifications a breathing effect
+         * @hide
+         */
+        public static final String SMS_BREATH = "pref_key_sms_breath";
+
+        /**
+         * Give MMS Notifications a breathing effect
+         * @hide
+         */
+        public static final String MISSED_CALL_BREATH = "missed_call_breath";
+
+        /**
+         * Battery warning preferences
+         *
+         * 0 = show dialog + play sound (default)
+         * 1 = fire notification + play sound
+         * 2 = show dialog only
+         * 3 = fire notification only
+         * 4 = play sound only
+         * 5 = none
+         * @hide
+         */
+        public static final String POWER_UI_LOW_BATTERY_WARNING_POLICY = "power_ui_low_battery_warning_policy";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -4218,7 +4948,12 @@ public final class Settings {
             NAV_BUTTON_COLOR,
             NAV_GLOW_COLOR,
             STATUS_BAR_COLOR,
-            STATUS_ICON_COLOR
+            STATUS_ICON_COLOR,
+            PHONE_BLACKLIST_ENABLED,
+            PHONE_BLACKLIST_NOTIFY_ENABLED,
+            PHONE_BLACKLIST_PRIVATE_NUMBER_MODE,
+            PHONE_BLACKLIST_UNKNOWN_NUMBER_MODE,
+            PHONE_BLACKLIST_REGEX_ENABLED
         };
 
         // Settings moved to Settings.Secure
@@ -4471,7 +5206,7 @@ public final class Settings {
          *  we always vibrate, even if no vibration was specified
          */
         public static final String NOTIFICATION_CONVERT_SOUND_TO_VIBRATION = "convert_sound_to_vibration";
-        
+
         /**
          * Whether to enable notification shortcuts (toggle)
          *
@@ -4524,6 +5259,40 @@ public final class Settings {
          */
         public static final String STATUSBAR_BRIGHTNESS_SLIDER = "statusbar_brightness_slider";
 
+        /**
+         * use Alt Statusbar Signal Layout
+         * boolean
+         *
+         * @hide
+         */
+        public static final String STATUSBAR_SIGNAL_CLUSTER_ALT = "statusbar_signal_cluster_alt";
+
+        /**
+         * ListView Animations
+         * 0 == None
+         * 1 == Wave (Left)
+         * 2 == Wave (Right)
+         * 3 == Scale
+         * 4 == Alpha
+         * 5 == Stack (Top)
+         * 6 == Stack (Bottom)
+         * 7 == Translate (Left)
+         * 8 == Translate (Right)
+         */
+         public static final String LISTVIEW_ANIMATION = "listview_animation";
+
+        /**
+         * ListView Interpolators
+         * 0 == None
+         * 1 == accelerate_interpolator
+         * 2 == decelerate_interpolator
+         * 3 == accelerate_decelerate_interpolator
+         * 4 == anticipate_interpolator
+         * 5 == overshoot_interpolator
+         * 6 == anticipate_overshoot_interpolator
+         * 7 == bounce_interpolator
+         */
+         public static final String LISTVIEW_INTERPOLATOR = "listview_interpolator";
     }
 
     /**
@@ -4560,11 +5329,13 @@ public final class Settings {
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_SHOW_ERROR_PATH);
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_DOTS_VISIBLE);
             MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_PATTERN_TACTILE_FEEDBACK_ENABLED);
+            MOVED_TO_LOCK_SETTINGS.add(Secure.LOCK_SYNC_ENCRYPTION_PASSWORD);
 
             MOVED_TO_GLOBAL = new HashSet<String>();
             MOVED_TO_GLOBAL.add(Settings.Global.ADB_ENABLED);
             MOVED_TO_GLOBAL.add(Settings.Global.ASSISTED_GPS_ENABLED);
             MOVED_TO_GLOBAL.add(Settings.Global.BLUETOOTH_ON);
+            MOVED_TO_GLOBAL.add(Settings.Global.BUGREPORT_IN_POWER_MENU);
             MOVED_TO_GLOBAL.add(Settings.Global.CDMA_CELL_BROADCAST_SMS);
             MOVED_TO_GLOBAL.add(Settings.Global.CDMA_ROAMING_MODE);
             MOVED_TO_GLOBAL.add(Settings.Global.CDMA_SUBSCRIPTION_MODE);
@@ -4614,13 +5385,6 @@ public final class Settings {
             MOVED_TO_GLOBAL.add(Settings.Global.TETHER_DUN_APN);
             MOVED_TO_GLOBAL.add(Settings.Global.TETHER_DUN_REQUIRED);
             MOVED_TO_GLOBAL.add(Settings.Global.TETHER_SUPPORTED);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_HELP_URI);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_MAX_NTP_CACHE_AGE_SEC);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_NOTIFICATION_TYPE);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_POLLING_SEC);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_RESET_DAY);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_THRESHOLD_BYTES);
-            MOVED_TO_GLOBAL.add(Settings.Global.THROTTLE_VALUE_KBITSPS);
             MOVED_TO_GLOBAL.add(Settings.Global.USB_MASS_STORAGE_ENABLED);
             MOVED_TO_GLOBAL.add(Settings.Global.USE_GOOGLE_MAIL);
             MOVED_TO_GLOBAL.add(Settings.Global.WEB_AUTOFILL_QUERY_URL);
@@ -5036,8 +5800,10 @@ public final class Settings {
         /**
          * When the user has enable the option to have a "bug report" command
          * in the power menu.
+         * @deprecated Use {@link android.provider.Settings.Global#BUGREPORT_IN_POWER_MENU} instead
          * @hide
          */
+        @Deprecated
         public static final String BUGREPORT_IN_POWER_MENU = "bugreport_in_power_menu";
 
         /**
@@ -5071,6 +5837,13 @@ public final class Settings {
          * by network, gps, or other location providers.
          */
         public static final String ALLOW_MOCK_LOCATION = "mock_location";
+
+        /**
+         * Setting to allow the use of com.android.internal.telephony.SMSDispatcher#MockSmsReceiver
+         * to simulate the reception of SMS for testing purposes during application development.
+         * @hide
+         */
+         public static final String ALLOW_MOCK_SMS = "mock_sms";
 
         /**
          * A 64-bit number (as a hex string) that is randomly
@@ -5225,6 +5998,7 @@ public final class Settings {
         /**
          * This preference contains the string that shows for owner info on LockScreen.
          * @hide
+         * @deprecated
          */
         public static final String LOCK_SCREEN_OWNER_INFO = "lock_screen_owner_info";
 
@@ -5252,17 +6026,22 @@ public final class Settings {
         /**
          * This preference enables showing the owner info on LockScreen.
          * @hide
+         * @deprecated
          */
         public static final String LOCK_SCREEN_OWNER_INFO_ENABLED =
             "lock_screen_owner_info_enabled";
 
-        /**
-         * Whether the unsecure widget screen will be shown before a secure
-         * lock screen
+         /**
+         * Stores used unsecure lockscreen for normal mode and unlock before unlock when merged
          * @hide
          */
-        public static final String LOCK_BEFORE_UNLOCK =
-            "lock_before_unlock";
+         public static final String LOCKSCREEN_UNSECURE_USED = "lockscreen_unsecure_used";
+
+         /*
+         * Stores value for lock before unlock
+         * @hide
+         */
+        public static final String LOCK_BEFORE_UNLOCK = "lock_before_unlock";
 
         /**
          * Determines the width and height of the LockPatternView widget
@@ -5270,6 +6049,13 @@ public final class Settings {
          */
         public static final String LOCK_PATTERN_SIZE =
             "lock_pattern_size";
+
+        /**
+         * Whether to sync encryption password with lock screen token
+         * @hide
+         */
+        public static final String LOCK_SYNC_ENCRYPTION_PASSWORD =
+            "lock_sync_encryption_password";
 
         /**
          * The Logging ID (a unique 64-bit value) as a hex string.
@@ -5308,6 +6094,25 @@ public final class Settings {
          */
         // TODO: 881807
         public static final String SETTINGS_CLASSNAME = "settings_classname";
+
+        /**
+         * SELinux enforcing status.
+         * 1 - SELinux is in enforcing mode.
+         * 0 - SELinux is in permissive mode.
+         *
+         * @hide
+         */
+        public static final String SELINUX_ENFORCING = "selinux_enforcing";
+
+        /**
+         * Stores the values of the SELinux booleans. Stored as a comma
+         * seperated list of values, each value being of the form
+         * {@code boolean_name:value} where value is 1 if the boolean is set
+         * and 0 otherwise. Example: {@code bool1:1,bool2:0}.
+         *
+         * @hide
+         */
+        public static final String SELINUX_BOOLEANS = "selinux_booleans";
 
         /**
          * @deprecated Use {@link android.provider.Settings.Global#USB_MASS_STORAGE_ENABLED} instead
@@ -6043,13 +6848,6 @@ public final class Settings {
         public static final String UI_INVERTED_MODE = "ui_inverted_mode";
 
         /**
-         * force UI mode change for methods which are not observing
-         * UiModeManagerService
-         * @hide
-         */
-        public static final String UI_MODE_IS_TOGGLED = "ui_mode_is_toggled";
-
-        /**
          * Whether screensavers are enabled.
          * @hide
          */
@@ -6085,10 +6883,32 @@ public final class Settings {
         public static final String SCREENSAVER_DEFAULT_COMPONENT = "screensaver_default_component";
 
         /**
-         * If screensavers are enabled, whether the screensaver should be automatically launched
-         * when charging wirelessly.
+
+         * Name of a package that the current user has explicitly allowed to see all of that
+         * user's notifications.
+         *
+         * @hide
+         */
+        public static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
+
+        /**
+         * Whether or not to enable the dial pad autocomplete functionality.
+         *
+         * @hide
+         */
+        public static final String DIALPAD_AUTOCOMPLETE = "dialpad_autocomplete";
+
+        /**
+         * Whether to allow killing of the foreground app by long-pressing the Back button
+         * @hide
          */
         public static final String SCREENSAVER_ACTIVATE_ON_WIRELESS_CHARGE = "screensaver_activate_on_wireless_charger";
+
+        /**
+         * Whether newly installed apps should run with privacy guard by default
+         * @hide
+         */
+         public static final String PRIVACY_GUARD_DEFAULT = "privacy_guard_default";
 
         /**
          * This are the settings to be backed up.
@@ -6100,8 +6920,9 @@ public final class Settings {
          * @hide
          */
         public static final String[] SETTINGS_TO_BACKUP = {
-            BUGREPORT_IN_POWER_MENU,
+            BUGREPORT_IN_POWER_MENU,                            // moved to global
             ALLOW_MOCK_LOCATION,
+            ALLOW_MOCK_SMS,
             PARENTAL_CONTROL_ENABLED,
             PARENTAL_CONTROL_REDIRECT_URL,
             USB_MASS_STORAGE_ENABLED,                           // moved to global
@@ -6115,6 +6936,8 @@ public final class Settings {
             TOUCH_EXPLORATION_ENABLED,
             ACCESSIBILITY_ENABLED,
             ACCESSIBILITY_SPEAK_PASSWORD,
+            SELINUX_ENFORCING,
+            SELINUX_BOOLEANS,
             TTS_USE_DEFAULTS,
             TTS_DEFAULT_RATE,
             TTS_DEFAULT_PITCH,
@@ -6132,9 +6955,10 @@ public final class Settings {
             MOUNT_UMS_NOTIFY_ENABLED,
             UI_NIGHT_MODE,
             UI_INVERTED_MODE,
-            UI_MODE_IS_TOGGLED,
+            DIALPAD_AUTOCOMPLETE,
             LOCK_SCREEN_OWNER_INFO,
-            LOCK_SCREEN_OWNER_INFO_ENABLED
+            LOCK_SCREEN_OWNER_INFO_ENABLED,
+            PRIVACY_GUARD_DEFAULT
         };
 
         /**
@@ -6366,6 +7190,25 @@ public final class Settings {
          */
         public static final String KILL_APP_LONGPRESS_BACK = "kill_app_longpress_back";
 
+	/**
+         * Whether to sound when charger power is connected/disconnected
+         * @hide
+         */
+        public static final String POWER_NOTIFICATIONS_ENABLED = "power_notifications_enabled";
+
+        /**
+         * Whether to vibrate when charger power is connected/disconnected
+         * @hide
+         */
+        public static final String POWER_NOTIFICATIONS_VIBRATE = "power_notifications_vibrate";
+
+        /**
+         * URI for power notification sounds
+         * @hide
+         */
+        public static final String POWER_NOTIFICATIONS_RINGTONE = "power_notifications_ringtone";
+
+
         /**
          * URI for the "wireless charging started" sound.
          * @hide
@@ -6385,6 +7228,13 @@ public final class Settings {
          * These values can be OR-ed together.
          */
         public static final String STAY_ON_WHILE_PLUGGED_IN = "stay_on_while_plugged_in";
+
+        /**
+         * When the user has enable the option to have a "bug report" command
+         * in the power menu.
+         * @hide
+         */
+        public static final String BUGREPORT_IN_POWER_MENU = "bugreport_in_power_menu";
 
         /**
          * Whether ADB is enabled.
@@ -6454,6 +7304,14 @@ public final class Settings {
         * Whether or not data roaming is enabled. (0 = false, 1 = true)
         */
        public static final String DATA_ROAMING = "data_roaming";
+
+       /**
+        * The value passed to a Mobile DataConnection via bringUp which defines the
+        * number of retries to preform when setting up the initial connection. The default
+        * value defined in DataConnectionTrackerBase#DEFAULT_MDC_INITIAL_RETRY is currently 1.
+        * @hide
+        */
+       public static final String MDC_INITIAL_MAX_RETRY = "mdc_initial_max_retry";
 
        /**
         * Whether user has enabled development settings.
@@ -6756,50 +7614,6 @@ public final class Settings {
        public static final String TETHER_DUN_APN = "tether_dun_apn";
 
        /**
-        * The bandwidth throttle polling freqency in seconds
-        * @hide
-        */
-       public static final String THROTTLE_POLLING_SEC = "throttle_polling_sec";
-
-       /**
-        * The bandwidth throttle threshold (long)
-        * @hide
-        */
-       public static final String THROTTLE_THRESHOLD_BYTES = "throttle_threshold_bytes";
-
-       /**
-        * The bandwidth throttle value (kbps)
-        * @hide
-        */
-       public static final String THROTTLE_VALUE_KBITSPS = "throttle_value_kbitsps";
-
-       /**
-        * The bandwidth throttle reset calendar day (1-28)
-        * @hide
-        */
-       public static final String THROTTLE_RESET_DAY = "throttle_reset_day";
-
-       /**
-        * The throttling notifications we should send
-        * @hide
-        */
-       public static final String THROTTLE_NOTIFICATION_TYPE = "throttle_notification_type";
-
-       /**
-        * Help URI for data throttling policy
-        * @hide
-        */
-       public static final String THROTTLE_HELP_URI = "throttle_help_uri";
-
-       /**
-        * The length of time in Sec that we allow our notion of NTP time
-        * to be cached before we refresh it
-        * @hide
-        */
-       public static final String THROTTLE_MAX_NTP_CACHE_AGE_SEC =
-               "throttle_max_ntp_cache_age_sec";
-
-       /**
         * USB Mass Storage Enabled
         */
        public static final String USB_MASS_STORAGE_ENABLED = "usb_mass_storage_enabled";
@@ -6881,6 +7695,13 @@ public final class Settings {
        public static final String WIFI_ON = "wifi_on";
 
        /**
+        * Setting to allow scans to be enabled even wifi is turned off for connectivity.
+        * @hide
+        */
+       public static final String WIFI_SCAN_ALWAYS_AVAILABLE =
+                "wifi_scan_always_enabled";
+
+       /**
         * Used to save the Wifi_ON state prior to tethering.
         * This state will be checked to restore Wifi after
         * the user turns off tethering.
@@ -6953,6 +7774,12 @@ public final class Settings {
         * @hide
         */
        public static final String WIFI_P2P_DEVICE_NAME = "wifi_p2p_device_name";
+
+       /**
+        * The min time between wifi disable and wifi enable
+        * @hide
+        */
+       public static final String WIFI_REENABLE_DELAY_MS = "wifi_reenable_delay";
 
        /**
         * The number of milliseconds to delay when checking for data stalls during
@@ -7414,6 +8241,76 @@ public final class Settings {
         public static final String AUDIO_SAFE_VOLUME_STATE = "audio_safe_volume_state";
 
         /**
+         * URL for tzinfo (time zone) updates
+         * @hide
+         */
+        public static final String TZINFO_UPDATE_CONTENT_URL = "tzinfo_content_url";
+
+        /**
+         * URL for tzinfo (time zone) update metadata
+         * @hide
+         */
+        public static final String TZINFO_UPDATE_METADATA_URL = "tzinfo_metadata_url";
+
+        /**
+         * URL for selinux (mandatory access control) updates
+         * @hide
+         */
+        public static final String SELINUX_UPDATE_CONTENT_URL = "selinux_content_url";
+
+        /**
+         * URL for selinux (mandatory access control) update metadata
+         * @hide
+         */
+        public static final String SELINUX_UPDATE_METADATA_URL = "selinux_metadata_url";
+
+        /**
+         * URL for sms short code updates
+         * @hide
+         */
+        public static final String SMS_SHORT_CODES_UPDATE_CONTENT_URL =
+                "sms_short_codes_content_url";
+
+        /**
+         * URL for sms short code update metadata
+         * @hide
+         */
+        public static final String SMS_SHORT_CODES_UPDATE_METADATA_URL =
+                "sms_short_codes_metadata_url";
+
+        /**
+         * URL for cert pinlist updates
+         * @hide
+         */
+        public static final String CERT_PIN_UPDATE_CONTENT_URL = "cert_pin_content_url";
+
+        /**
+         * URL for cert pinlist updates
+         * @hide
+         */
+        public static final String CERT_PIN_UPDATE_METADATA_URL = "cert_pin_metadata_url";
+
+        /**
+         * URL for intent firewall updates
+         * @hide
+         */
+        public static final String INTENT_FIREWALL_UPDATE_CONTENT_URL =
+                "intent_firewall_content_url";
+
+        /**
+         * URL for intent firewall update metadata
+         * @hide
+         */
+        public static final String INTENT_FIREWALL_UPDATE_METADATA_URL =
+                "intent_firewall_metadata_url";
+
+        /**
+         * SELinux enforcement status. If 0, permissive; if 1, enforcing.
+         * @hide
+         */
+        public static final String SELINUX_STATUS = "selinux_status";
+
+        /**
          * Settings to backup. This is here so that it's in the same place as the settings
          * keys and easy to update.
          *
@@ -7430,11 +8327,15 @@ public final class Settings {
          * @hide
          */
         public static final String[] SETTINGS_TO_BACKUP = {
+            BUGREPORT_IN_POWER_MENU,
             STAY_ON_WHILE_PLUGGED_IN,
             MODE_RINGER,
             AUTO_TIME,
             AUTO_TIME_ZONE,
             POWER_SOUNDS_ENABLED,
+            POWER_NOTIFICATIONS_ENABLED,
+            POWER_NOTIFICATIONS_VIBRATE,
+            POWER_NOTIFICATIONS_RINGTONE,
             DOCK_SOUNDS_ENABLED,
             USB_MASS_STORAGE_ENABLED,
             ENABLE_ACCESSIBILITY_GLOBAL_GESTURE_ENABLED,

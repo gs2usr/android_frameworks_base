@@ -16,7 +16,9 @@
 
 package android.os.storage;
 
-import android.app.NotificationManager;
+import static android.net.TrafficStats.MB_IN_BYTES;
+
+import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Environment;
 import android.os.Handler;
@@ -25,6 +27,7 @@ import android.os.Message;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -36,6 +39,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.google.android.collect.Lists;
 
 /**
  * StorageManager is the interface to the systems storage service. The storage
@@ -54,20 +58,20 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link android.content.Context#getSystemService(java.lang.String)} with an
  * argument of {@link android.content.Context#STORAGE_SERVICE}.
  */
-
-public class StorageManager
-{
+public class StorageManager {
     private static final String TAG = "StorageManager";
+
+    private final ContentResolver mResolver;
 
     /*
      * Our internal MountService binder reference
      */
-    final private IMountService mMountService;
+    private final IMountService mMountService;
 
     /*
      * The looper target for callbacks
      */
-    Looper mTgtLooper;
+    private final Looper mTgtLooper;
 
     /*
      * Target listener for binder callbacks
@@ -299,7 +303,7 @@ public class StorageManager
     /**
      * Constructs a StorageManager object through which an application can
      * can communicate with the systems mount service.
-     * 
+     *
      * @param tgtLooper The {@link android.os.Looper} which events will be received on.
      *
      * <p>Applications can get instance of this class by calling
@@ -308,15 +312,15 @@ public class StorageManager
      *
      * @hide
      */
-    public StorageManager(Looper tgtLooper) throws RemoteException {
+    public StorageManager(ContentResolver resolver, Looper tgtLooper) throws RemoteException {
+        mResolver = resolver;
+        mTgtLooper = tgtLooper;
         mMountService = IMountService.Stub.asInterface(ServiceManager.getService("mount"));
         if (mMountService == null) {
             Log.e(TAG, "Unable to connect to mount service! - is it running yet?");
             return;
         }
-        mTgtLooper = tgtLooper;
     }
-
 
     /**
      * Registers a {@link android.os.storage.StorageEventListener StorageEventListener}.
@@ -446,7 +450,7 @@ public class StorageManager
      * file matches a package ID that is owned by the calling program's UID.
      * That is, shared UID applications can attempt to mount any other
      * application's OBB that shares its UID.
-     * 
+     *
      * @param rawPath the path to the OBB file
      * @param key secret used to encrypt the OBB; may be <code>null</code> if no
      *            encryption was used on the OBB.
@@ -484,7 +488,7 @@ public class StorageManager
      * That is, shared UID applications can obtain access to any other
      * application's OBB that shares its UID.
      * <p>
-     * 
+     *
      * @param rawPath path to the OBB file
      * @param force whether to kill any programs using this in order to unmount
      *            it
@@ -508,7 +512,7 @@ public class StorageManager
 
     /**
      * Check whether an Opaque Binary Blob (OBB) is mounted or not.
-     * 
+     *
      * @param rawPath path to OBB image
      * @return true if OBB is mounted; false if not mounted or on error
      */
@@ -528,7 +532,7 @@ public class StorageManager
      * Check the mounted path of an Opaque Binary Blob (OBB) file. This will
      * give you the path to where you can obtain access to the internals of the
      * OBB.
-     * 
+     *
      * @param rawPath path to OBB image
      * @return absolute path to mounted OBB image data or <code>null</code> if
      *         not mounted or exception encountered trying to read status
@@ -609,5 +613,49 @@ public class StorageManager
         }
         Log.w(TAG, "No primary storage defined");
         return null;
+    }
+
+    private static final int DEFAULT_THRESHOLD_PERCENTAGE = 10;
+    private static final long DEFAULT_THRESHOLD_MAX_BYTES = 500 * MB_IN_BYTES;
+    private static final long DEFAULT_FULL_THRESHOLD_BYTES = MB_IN_BYTES;
+
+    /**
+     * Return the number of available bytes at which the given path is
+     * considered running low on storage.
+     *
+     * @hide
+     */
+    public long getStorageLowBytes(File path) {
+        final long lowPercent = Settings.Global.getInt(mResolver,
+                Settings.Global.SYS_STORAGE_THRESHOLD_PERCENTAGE, DEFAULT_THRESHOLD_PERCENTAGE);
+        final long lowBytes = (path.getTotalSpace() * lowPercent) / 100;
+
+        final long maxLowBytes = Settings.Global.getLong(mResolver,
+                Settings.Global.SYS_STORAGE_THRESHOLD_MAX_BYTES, DEFAULT_THRESHOLD_MAX_BYTES);
+
+        return Math.min(lowBytes, maxLowBytes);
+    }
+
+    /**
+     * Return the number of available bytes at which the given path is
+     * considered full.
+     *
+     * @hide
+     */
+    public long getStorageFullBytes(File path) {
+        return Settings.Global.getLong(mResolver, Settings.Global.SYS_STORAGE_FULL_THRESHOLD_BYTES,
+                DEFAULT_FULL_THRESHOLD_BYTES);
+    }
+
+    /** {@hide} */
+    public static ArrayList<StorageVolume> getPhysicalExternalVolume(StorageVolume[] volumesphy) {
+        int count = volumesphy.length;
+        ArrayList<StorageVolume> volumes = Lists.newArrayList();
+        for (int i=0; i < count ; i++) {
+            if (!volumesphy[i].isEmulated()) {
+                volumes.add(volumesphy[i]);
+            }
+        }
+        return volumes;
     }
 }

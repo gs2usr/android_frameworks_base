@@ -25,6 +25,7 @@ import android.util.Log;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * Provides access to environment variables.
@@ -36,16 +37,21 @@ public class Environment {
     private static final String ENV_EMULATED_STORAGE_SOURCE = "EMULATED_STORAGE_SOURCE";
     private static final String ENV_EMULATED_STORAGE_TARGET = "EMULATED_STORAGE_TARGET";
     private static final String ENV_MEDIA_STORAGE = "MEDIA_STORAGE";
+    private static final String ENV_ANDROID_ROOT = "ANDROID_ROOT";
 
     /** {@hide} */
     public static String DIRECTORY_ANDROID = "Android";
 
-    private static final File ROOT_DIRECTORY
-            = getDirectory("ANDROID_ROOT", "/system");
+    private static final File DIR_ANDROID_ROOT = getDirectory(ENV_ANDROID_ROOT, "/system");
+    private static final File DIR_MEDIA_STORAGE = getDirectory(ENV_MEDIA_STORAGE, "/data/media");
+
+    private static final String CANONCIAL_EMULATED_STORAGE_TARGET = getCanonicalPathOrNull(
+            ENV_EMULATED_STORAGE_TARGET);
 
     private static final String SYSTEM_PROPERTY_EFS_ENABLED = "persist.security.efs.enabled";
 
     private static UserEnvironment sCurrentUser;
+    private static boolean sUserRequired;
 
     private static final Object sLock = new Object();
 
@@ -178,7 +184,7 @@ public class Environment {
      * Gets the Android root directory.
      */
     public static File getRootDirectory() {
-        return ROOT_DIRECTORY;
+        return DIR_ANDROID_ROOT;
     }
 
     /**
@@ -218,7 +224,7 @@ public class Environment {
      * @hide
      */
     public static File getMediaStorageDirectory() {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getMediaStorageDirectory();
     }
 
@@ -267,7 +273,7 @@ public class Environment {
      * computer, has been removed from the device, or some other problem has
      * happened.  You can determine its current state with
      * {@link #getExternalStorageState()}.
-     * 
+     *
      * <p><em>Note: don't be confused by the word "external" here.  This
      * directory can better be thought as media/shared storage.  It is a
      * filesystem that can hold a relatively large amount of data and that
@@ -302,10 +308,10 @@ public class Environment {
      *
      * <p>This path may change between platform versions, so applications
      * should only persist relative paths.</p>
-     * 
+     *
      * <p>Here is an example of typical code to monitor the state of
      * external storage:</p>
-     * 
+     *
      * {@sample development/samples/ApiDemos/src/com/example/android/apis/content/ExternalStorage.java
      * monitor_storage}
      *
@@ -313,7 +319,7 @@ public class Environment {
      * @see #isExternalStorageRemovable()
      */
     public static File getExternalStorageDirectory() {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageDirectory();
     }
 
@@ -349,7 +355,7 @@ public class Environment {
      * type.
      */
     public static String DIRECTORY_MUSIC = "Music";
-    
+
     /**
      * Standard directory in which to place any audio files that should be
      * in the list of podcasts that the user can select (not as regular
@@ -361,7 +367,7 @@ public class Environment {
      * type.
      */
     public static String DIRECTORY_PODCASTS = "Podcasts";
-    
+
     /**
      * Standard directory in which to place any audio files that should be
      * in the list of ringtones that the user can select (not as regular
@@ -373,7 +379,7 @@ public class Environment {
      * type.
      */
     public static String DIRECTORY_RINGTONES = "Ringtones";
-    
+
     /**
      * Standard directory in which to place any audio files that should be
      * in the list of alarms that the user can select (not as regular
@@ -385,7 +391,7 @@ public class Environment {
      * type.
      */
     public static String DIRECTORY_ALARMS = "Alarms";
-    
+
     /**
      * Standard directory in which to place any audio files that should be
      * in the list of notifications that the user can select (not as regular
@@ -397,7 +403,7 @@ public class Environment {
      * type.
      */
     public static String DIRECTORY_NOTIFICATIONS = "Notifications";
-    
+
     /**
      * Standard directory in which to place pictures that are available to
      * the user.  Note that this is primarily a convention for the top-level
@@ -405,7 +411,7 @@ public class Environment {
      * in any directory.
      */
     public static String DIRECTORY_PICTURES = "Pictures";
-    
+
     /**
      * Standard directory in which to place movies that are available to
      * the user.  Note that this is primarily a convention for the top-level
@@ -413,7 +419,7 @@ public class Environment {
      * in any directory.
      */
     public static String DIRECTORY_MOVIES = "Movies";
-    
+
     /**
      * Standard directory in which to place files that have been downloaded by
      * the user.  Note that this is primarily a convention for the top-level
@@ -423,44 +429,44 @@ public class Environment {
      * backwards compatibility reasons.
      */
     public static String DIRECTORY_DOWNLOADS = "Download";
-    
+
     /**
      * The traditional location for pictures and videos when mounting the
      * device as a camera.  Note that this is primarily a convention for the
      * top-level public directory, as this convention makes no sense elsewhere.
      */
     public static String DIRECTORY_DCIM = "DCIM";
-    
+
     /**
      * Get a top-level public external storage directory for placing files of
      * a particular type.  This is where the user will typically place and
      * manage their own files, so you should be careful about what you put here
      * to ensure you don't erase their files or get in the way of their own
      * organization.
-     * 
+     *
      * <p>On devices with multiple users (as described by {@link UserManager}),
      * each user has their own isolated external storage. Applications only
      * have access to the external storage for the user they're running as.</p>
      *
      * <p>Here is an example of typical code to manipulate a picture on
      * the public external storage:</p>
-     * 
+     *
      * {@sample development/samples/ApiDemos/src/com/example/android/apis/content/ExternalStorage.java
      * public_picture}
-     * 
+     *
      * @param type The type of storage directory to return.  Should be one of
      * {@link #DIRECTORY_MUSIC}, {@link #DIRECTORY_PODCASTS},
      * {@link #DIRECTORY_RINGTONES}, {@link #DIRECTORY_ALARMS},
      * {@link #DIRECTORY_NOTIFICATIONS}, {@link #DIRECTORY_PICTURES},
      * {@link #DIRECTORY_MOVIES}, {@link #DIRECTORY_DOWNLOADS}, or
      * {@link #DIRECTORY_DCIM}.  May not be null.
-     * 
+     *
      * @return Returns the File path for the directory.  Note that this
      * directory may not yet exist, so you must make sure it exists before
      * using it such as with {@link File#mkdirs File.mkdirs()}.
      */
     public static File getExternalStoragePublicDirectory(String type) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStoragePublicDirectory(type);
     }
 
@@ -469,43 +475,43 @@ public class Environment {
      * @hide
      */
     public static File getExternalStorageAndroidDataDir() {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAndroidDataDir();
     }
-    
+
     /**
      * Generates the raw path to an application's data
      * @hide
      */
     public static File getExternalStorageAppDataDirectory(String packageName) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAppDataDirectory(packageName);
     }
-    
+
     /**
      * Generates the raw path to an application's media
      * @hide
      */
     public static File getExternalStorageAppMediaDirectory(String packageName) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAppMediaDirectory(packageName);
     }
-    
+
     /**
      * Generates the raw path to an application's OBB files
      * @hide
      */
     public static File getExternalStorageAppObbDirectory(String packageName) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAppObbDirectory(packageName);
     }
-    
+
     /**
      * Generates the path to an application's files.
      * @hide
      */
     public static File getExternalStorageAppFilesDirectory(String packageName) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAppFilesDirectory(packageName);
     }
 
@@ -514,10 +520,10 @@ public class Environment {
      * @hide
      */
     public static File getExternalStorageAppCacheDirectory(String packageName) {
-        throwIfSystem();
+        throwIfUserRequired();
         return sCurrentUser.getExternalStorageAppCacheDirectory(packageName);
     }
-    
+
     /**
      * Gets the Android download/cache content directory.
      */
@@ -529,10 +535,10 @@ public class Environment {
      * {@link #getExternalStorageState()} returns MEDIA_REMOVED if the media is not present.
      */
     public static final String MEDIA_REMOVED = "removed";
-     
+
     /**
      * {@link #getExternalStorageState()} returns MEDIA_UNMOUNTED if the media is present
-     * but not mounted. 
+     * but not mounted.
      */
     public static final String MEDIA_UNMOUNTED = "unmounted";
 
@@ -550,38 +556,38 @@ public class Environment {
 
     /**
      * {@link #getExternalStorageState()} returns MEDIA_MOUNTED if the media is present
-     * and mounted at its mount point with read/write access. 
+     * and mounted at its mount point with read/write access.
      */
     public static final String MEDIA_MOUNTED = "mounted";
 
     /**
      * {@link #getExternalStorageState()} returns MEDIA_MOUNTED_READ_ONLY if the media is present
-     * and mounted at its mount point with read only access. 
+     * and mounted at its mount point with read only access.
      */
     public static final String MEDIA_MOUNTED_READ_ONLY = "mounted_ro";
 
     /**
      * {@link #getExternalStorageState()} returns MEDIA_SHARED if the media is present
-     * not mounted, and shared via USB mass storage. 
+     * not mounted, and shared via USB mass storage.
      */
     public static final String MEDIA_SHARED = "shared";
 
     /**
      * {@link #getExternalStorageState()} returns MEDIA_BAD_REMOVAL if the media was
-     * removed before it was unmounted. 
+     * removed before it was unmounted.
      */
     public static final String MEDIA_BAD_REMOVAL = "bad_removal";
 
     /**
      * {@link #getExternalStorageState()} returns MEDIA_UNMOUNTABLE if the media is present
      * but cannot be mounted.  Typically this happens if the file system on the
-     * media is corrupted. 
+     * media is corrupted.
      */
     public static final String MEDIA_UNMOUNTABLE = "unmountable";
 
     /**
      * Gets the current state of the primary "external" storage device.
-     * 
+     *
      * @see #getExternalStorageDirectory()
      */
     public static String getExternalStorageState() {
@@ -632,9 +638,28 @@ public class Environment {
         return path == null ? new File(defaultPath) : new File(path);
     }
 
-    private static void throwIfSystem() {
-        if (Process.myUid() == Process.SYSTEM_UID) {
-            Log.wtf(TAG, "Static storage paths aren't available from AID_SYSTEM", new Throwable());
+    private static String getCanonicalPathOrNull(String variableName) {
+        String path = System.getenv(variableName);
+        if (path == null) {
+            return null;
+        }
+        try {
+            return new File(path).getCanonicalPath();
+        } catch (IOException e) {
+            Log.w(TAG, "Unable to resolve canonical path for " + path);
+            return null;
+        }
+    }
+
+    /** {@hide} */
+    public static void setUserRequired(boolean userRequired) {
+        sUserRequired = userRequired;
+    }
+
+    private static void throwIfUserRequired() {
+        if (sUserRequired) {
+            Log.wtf(TAG, "Path requests must specify a user by using UserEnvironment",
+                    new Throwable());
         }
     }
 
@@ -648,5 +673,41 @@ public class Environment {
             }
         }
         return cur;
+    }
+
+    /**
+     * If the given path exists on emulated external storage, return the
+     * translated backing path hosted on internal storage. This bypasses any
+     * emulation later, improving performance. This is <em>only</em> suitable
+     * for read-only access.
+     * <p>
+     * Returns original path if given path doesn't meet these criteria. Callers
+     * must hold {@link android.Manifest.permission#WRITE_MEDIA_STORAGE}
+     * permission.
+     *
+     * @hide
+     */
+    public static File maybeTranslateEmulatedPathToInternal(File path) {
+        // Fast return if not emulated, or missing variables
+        if (!Environment.isExternalStorageEmulated()
+                || CANONCIAL_EMULATED_STORAGE_TARGET == null) {
+            return path;
+        }
+
+        try {
+            final String rawPath = path.getCanonicalPath();
+            if (rawPath.startsWith(CANONCIAL_EMULATED_STORAGE_TARGET)) {
+                final File internalPath = new File(DIR_MEDIA_STORAGE,
+                        rawPath.substring(CANONCIAL_EMULATED_STORAGE_TARGET.length()));
+                if (internalPath.exists()) {
+                    return internalPath;
+                }
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to resolve canonical path for " + path);
+        }
+
+        // Unable to translate to internal path; use original
+        return path;
     }
 }

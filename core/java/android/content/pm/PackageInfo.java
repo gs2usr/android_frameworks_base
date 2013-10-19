@@ -37,34 +37,34 @@ public class PackageInfo implements Parcelable {
      * attribute.
      */
     public int versionCode;
-    
+
     /**
      * The version name of this package, as specified by the &lt;manifest&gt;
      * tag's {@link android.R.styleable#AndroidManifest_versionName versionName}
      * attribute.
      */
     public String versionName;
-    
+
     /**
      * The shared user ID name of this package, as specified by the &lt;manifest&gt;
      * tag's {@link android.R.styleable#AndroidManifest_sharedUserId sharedUserId}
      * attribute.
      */
     public String sharedUserId;
-    
+
     /**
      * The shared user ID label of this package, as specified by the &lt;manifest&gt;
      * tag's {@link android.R.styleable#AndroidManifest_sharedUserLabel sharedUserLabel}
      * attribute.
      */
     public int sharedUserLabel;
-    
+
     /**
      * Information collected from the &lt;application&gt; tag, or null if
      * there was none.
      */
     public ApplicationInfo applicationInfo;
-    
+
     /**
      * The time at which the app was first installed.  Units are as
      * per {@link System#currentTimeMillis()}.
@@ -122,7 +122,7 @@ public class PackageInfo implements Parcelable {
      * {@link PackageManager#GET_INSTRUMENTATION} was set.
      */
     public InstrumentationInfo[] instrumentation;
-    
+
     /**
      * Array of all {@link android.R.styleable#AndroidManifestPermission
      * &lt;permission&gt;} tags included under &lt;manifest&gt;,
@@ -130,7 +130,7 @@ public class PackageInfo implements Parcelable {
      * {@link PackageManager#GET_PERMISSIONS} was set.
      */
     public PermissionInfo[] permissions;
-    
+
     /**
      * Array of all {@link android.R.styleable#AndroidManifestUsesPermission
      * &lt;uses-permission&gt;} tags included under &lt;manifest&gt;,
@@ -140,7 +140,7 @@ public class PackageInfo implements Parcelable {
      * by the system at install time.
      */
     public String[] requestedPermissions;
-    
+
     /**
      * Array of flags of all {@link android.R.styleable#AndroidManifestUsesPermission
      * &lt;uses-permission&gt;} tags included under &lt;manifest&gt;,
@@ -170,13 +170,13 @@ public class PackageInfo implements Parcelable {
      * in if the flag {@link PackageManager#GET_SIGNATURES} was set.
      */
     public Signature[] signatures;
-    
+
     /**
      * Application specified preferred configuration
      * {@link android.R.styleable#AndroidManifestUsesConfiguration
      * &lt;uses-configuration&gt;} tags included under &lt;manifest&gt;,
      * or null if there were none. This is only filled in if the flag
-     * {@link PackageManager#GET_CONFIGURATIONS} was set.  
+     * {@link PackageManager#GET_CONFIGURATIONS} was set.
      */
     public ConfigurationInfo[] configPreferences;
 
@@ -218,7 +218,7 @@ public class PackageInfo implements Parcelable {
      * @hide
      */
     public int installLocation = INSTALL_LOCATION_INTERNAL_ONLY;
-    
+
     // Is Theme Apk
     /**
      * {@hide}
@@ -230,6 +230,15 @@ public class PackageInfo implements Parcelable {
      * {@hide}
      */
     public ThemeInfo [] themeInfos;
+
+    /** @hide */
+    public boolean requiredForAllUsers;
+
+    /** @hide */
+    public String restrictedAccountType;
+
+    /** @hide */
+    public String requiredAccountType;
 
     public PackageInfo() {
     }
@@ -319,6 +328,9 @@ public class PackageInfo implements Parcelable {
         dest.writeTypedArray(configPreferences, parcelableFlags);
         dest.writeTypedArray(reqFeatures, parcelableFlags);
         dest.writeInt(installLocation);
+        dest.writeInt(requiredForAllUsers ? 1 : 0);
+        dest.writeString(restrictedAccountType);
+        dest.writeString(requiredAccountType);
 
         /* Theme-specific. */
         dest.writeInt((isThemeApk)? 1 : 0);
@@ -363,6 +375,9 @@ public class PackageInfo implements Parcelable {
         configPreferences = source.createTypedArray(ConfigurationInfo.CREATOR);
         reqFeatures = source.createTypedArray(FeatureInfo.CREATOR);
         installLocation = source.readInt();
+        requiredForAllUsers = source.readInt() != 0;
+        restrictedAccountType = source.readString();
+        requiredAccountType = source.readString();
 
         /* Theme-specific. */
         isThemeApk = (source.readInt() != 0);

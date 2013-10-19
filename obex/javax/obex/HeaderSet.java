@@ -1,4 +1,6 @@
 /*
+ * Copyright (C) 2013 The Linux Foundation. All rights reserved
+ * Not a Contribution.
  * Copyright (c) 2008-2009, Motorola, Inc.
  *
  * All rights reserved.
@@ -181,6 +183,8 @@ public final class HeaderSet {
 
     private String mName; // null terminated Unicode text string
 
+    private boolean mEmptyName;
+
     private String mType; // null terminated ASCII text string
 
     private Long mLength; // 4 byte unsigend integer
@@ -235,6 +239,25 @@ public final class HeaderSet {
     }
 
     /**
+     * Sets flag for special "value" of NAME header which should be empty. This
+     * is not the same as NAME header with empty string in which case it will
+     * have length of 5 bytes. It should be 3 bytes with only header id and
+     * length field.
+     */
+    public void setEmptyNameHeader() {
+        mName = null;
+        mEmptyName = true;
+    }
+
+    /**
+     * Gets flag for special "value" of NAME header which should be empty. See
+     * above.
+     */
+    public boolean getEmptyNameHeader() {
+        return mEmptyName;
+    }
+
+    /**
      * Sets the value of the header identifier to the value provided. The type
      * of object must correspond to the Java type defined in the description of
      * this interface. If <code>null</code> is passed as the
@@ -269,6 +292,7 @@ public final class HeaderSet {
                 if ((headerValue != null) && (!(headerValue instanceof String))) {
                     throw new IllegalArgumentException("Name must be a String");
                 }
+                mEmptyName = false;
                 mName = (String)headerValue;
                 break;
             case TYPE:
@@ -501,88 +525,84 @@ public final class HeaderSet {
      *         the operation or the connection has been closed
      */
     public int[] getHeaderList() throws IOException {
-        ByteArrayOutputStream out = null;
-        try{
-            out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-            if (mCount != null) {
-                out.write(COUNT);
-            }
-            if (mName != null) {
-                out.write(NAME);
-            }
-            if (mType != null) {
-                out.write(TYPE);
-            }
-            if (mLength != null) {
-                out.write(LENGTH);
-            }
-            if (mIsoTime != null) {
-                out.write(TIME_ISO_8601);
-            }
-            if (mByteTime != null) {
-                out.write(TIME_4_BYTE);
-            }
-            if (mDescription != null) {
-                out.write(DESCRIPTION);
-            }
-            if (mTarget != null) {
-                out.write(TARGET);
-            }
-            if (mHttpHeader != null) {
-                out.write(HTTP);
-            }
-            if (mWho != null) {
-                out.write(WHO);
-            }
-            if (mAppParam != null) {
-                out.write(APPLICATION_PARAMETER);
-            }
-            if (mObjectClass != null) {
-                out.write(OBJECT_CLASS);
-            }
+        if (mCount != null) {
+            out.write(COUNT);
+        }
+        if (mName != null) {
+            out.write(NAME);
+        }
+        if (mType != null) {
+            out.write(TYPE);
+        }
+        if (mLength != null) {
+            out.write(LENGTH);
+        }
+        if (mIsoTime != null) {
+            out.write(TIME_ISO_8601);
+        }
+        if (mByteTime != null) {
+            out.write(TIME_4_BYTE);
+        }
+        if (mDescription != null) {
+            out.write(DESCRIPTION);
+        }
+        if (mTarget != null) {
+            out.write(TARGET);
+        }
+        if (mHttpHeader != null) {
+            out.write(HTTP);
+        }
+        if (mWho != null) {
+            out.write(WHO);
+        }
+        if (mAppParam != null) {
+            out.write(APPLICATION_PARAMETER);
+        }
+        if (mObjectClass != null) {
+            out.write(OBJECT_CLASS);
+        }
 
-            for (int i = 0x30; i < 0x40; i++) {
-                if (mUnicodeUserDefined[i - 0x30] != null) {
-                    out.write(i);
-                }
-            }
-
-            for (int i = 0x70; i < 0x80; i++) {
-                if (mSequenceUserDefined[i - 0x70] != null) {
-                    out.write(i);
-                }
-            }
-
-            for (int i = 0xB0; i < 0xC0; i++) {
-                if (mByteUserDefined[i - 0xB0] != null) {
-                    out.write(i);
-                }
-            }
-
-            for (int i = 0xF0; i < 0x100; i++) {
-                if (mIntegerUserDefined[i - 0xF0] != null) {
-                    out.write(i);
-                }
-            }
-
-            byte[] headers = out.toByteArray();
-            if ((headers == null) || (headers.length == 0)) {
-                return null;
-            }
-
-            int[] result = new int[headers.length];
-            for (int i = 0; i < headers.length; i++) {
-                // Convert the byte to a positive integer.  That is, an integer
-                // between 0 and 256.
-                result[i] = headers[i] & 0xFF;
-            }
-            return result;
-        } finally {
-            if (out != null) {
-                out.close();
+        for (int i = 0x30; i < 0x40; i++) {
+            if (mUnicodeUserDefined[i - 0x30] != null) {
+                out.write(i);
             }
         }
+
+        for (int i = 0x70; i < 0x80; i++) {
+            if (mSequenceUserDefined[i - 0x70] != null) {
+                out.write(i);
+            }
+        }
+
+        for (int i = 0xB0; i < 0xC0; i++) {
+            if (mByteUserDefined[i - 0xB0] != null) {
+                out.write(i);
+            }
+        }
+
+        for (int i = 0xF0; i < 0x100; i++) {
+            if (mIntegerUserDefined[i - 0xF0] != null) {
+                out.write(i);
+            }
+        }
+
+        byte[] headers = out.toByteArray();
+        out.close();
+
+        if ((headers == null) || (headers.length == 0)) {
+            return null;
+        }
+
+        int[] result = new int[headers.length];
+        for (int i = 0; i < headers.length; i++) {
+            // Convert the byte to a positive integer.  That is, an integer
+            // between 0 and 256.
+            result[i] = headers[i] & 0xFF;
+        }
+
+        return result;
     }
 
     /**

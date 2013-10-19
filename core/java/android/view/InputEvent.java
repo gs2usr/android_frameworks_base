@@ -51,7 +51,7 @@ public abstract class InputEvent implements Parcelable {
      * zero indicates that the event didn't come from a physical device
      * and maps to the default keymap.  The other numbers are arbitrary and
      * you shouldn't depend on the values.
-     * 
+     *
      * @return The device id.
      * @see InputDevice#getDevice
      */
@@ -59,7 +59,7 @@ public abstract class InputEvent implements Parcelable {
 
     /**
      * Gets the device that this event came from.
-     * 
+     *
      * @return The device, or null if unknown.
      */
     public final InputDevice getDevice() {
@@ -68,9 +68,8 @@ public abstract class InputEvent implements Parcelable {
 
     /**
      * Gets the source of the event.
-     * 
+     *
      * @return The event source or {@link InputDevice#SOURCE_UNKNOWN} if unknown.
-     * @see InputDevice#getSourceInfo
      */
     public abstract int getSource();
 
@@ -81,6 +80,18 @@ public abstract class InputEvent implements Parcelable {
      * @hide
      */
     public abstract void setSource(int source);
+
+    /**
+     * Determines whether the event is from the given source.
+     *
+     * @param source The input source to check against. This can be a specific device type, such as
+     * {@link InputDevice#SOURCE_TOUCH_NAVIGATION}, or a more generic device class, such as
+     * {@link InputDevice#SOURCE_CLASS_POINTER}.
+     * @return Whether the event is from the given source.
+     */
+    public boolean isFromSource(int source) {
+        return (getSource() & source) == source;
+    }
 
     /**
      * Copies the event.
@@ -215,7 +226,7 @@ public abstract class InputEvent implements Parcelable {
                 throw new IllegalStateException("Unexpected input event type token in parcel.");
             }
         }
-        
+
         public InputEvent[] newArray(int size) {
             return new InputEvent[size];
         }

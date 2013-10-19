@@ -499,7 +499,7 @@ public class SpannableStringBuilder implements CharSequence, GetChars, Spannable
         // Span watchers need to be called after text watchers, which may update the layout
         sendToSpanWatchers(start, end, newLen - origLen);
 
-        return this; 
+        return this;
     }
 
     private static boolean hasNonExclusiveExclusiveSpanAt(CharSequence text, int offset) {
@@ -758,7 +758,7 @@ public class SpannableStringBuilder implements CharSequence, GetChars, Spannable
             }
         }
 
-        return 0; 
+        return 0;
     }
 
     /**
@@ -1219,35 +1219,6 @@ public class SpannableStringBuilder implements CharSequence, GetChars, Spannable
             getChars(contextStart, contextEnd, buf, 0);
             ret = p.getTextRunAdvances(buf, start - contextStart, len,
                     0, contextLen, flags, advances, advancesPos);
-            TextUtils.recycle(buf);
-        }
-
-        return ret;
-    }
-
-    /**
-     * Don't call this yourself -- exists for Paint to use internally.
-     * {@hide}
-     */
-    public float getTextRunAdvances(int start, int end, int contextStart, int contextEnd, int flags,
-            float[] advances, int advancesPos, Paint p, int reserved) {
-
-        float ret;
-
-        int contextLen = contextEnd - contextStart;
-        int len = end - start;
-
-        if (end <= mGapStart) {
-            ret = p.getTextRunAdvances(mText, start, len, contextStart, contextLen,
-                    flags, advances, advancesPos, reserved);
-        } else if (start >= mGapStart) {
-            ret = p.getTextRunAdvances(mText, start + mGapLength, len,
-                    contextStart + mGapLength, contextLen, flags, advances, advancesPos, reserved);
-        } else {
-            char[] buf = TextUtils.obtain(contextLen);
-            getChars(contextStart, contextEnd, buf, 0);
-            ret = p.getTextRunAdvances(buf, start - contextStart, len,
-                    0, contextLen, flags, advances, advancesPos, reserved);
             TextUtils.recycle(buf);
         }
 

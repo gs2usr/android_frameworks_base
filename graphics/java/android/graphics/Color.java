@@ -17,6 +17,7 @@
 package android.graphics;
 
 import android.util.MathUtils;
+import com.android.internal.util.XmlUtils;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -109,9 +110,9 @@ public class Color {
 
     /**
      * Returns the hue component of a color int.
-     * 
+     *
      * @return A value between 0.0f and 1.0f
-     * 
+     *
      * @hide Pending API council
      */
     public static float hue(int color) {
@@ -151,9 +152,9 @@ public class Color {
 
     /**
      * Returns the saturation component of a color int.
-     * 
+     *
      * @return A value between 0.0f and 1.0f
-     * 
+     *
      * @hide Pending API council
      */
     public static float saturation(int color) {
@@ -178,9 +179,9 @@ public class Color {
 
     /**
      * Returns the brightness component of a color int.
-     * 
+     *
      * @return A value between 0.0f and 1.0f
-     * 
+     *
      * @hide Pending API council
      */
     public static float brightness(int color) {
@@ -200,7 +201,9 @@ public class Color {
      * #RRGGBB
      * #AARRGGBB
      * 'red', 'blue', 'green', 'black', 'white', 'gray', 'cyan', 'magenta',
-     * 'yellow', 'lightgray', 'darkgray'
+     * 'yellow', 'lightgray', 'darkgray', 'grey', 'lightgrey', 'darkgrey',
+     * 'aqua', 'fuschia', 'lime', 'maroon', 'navy', 'olive', 'purple',
+     * 'silver', 'teal'
      */
     public static int parseColor(String colorString) {
         if (colorString.charAt(0) == '#') {
@@ -230,13 +233,13 @@ public class Color {
      * If hsv values are out of range, they are pinned.
      * @param hsb  3 element array which holds the input HSB components.
      * @return the resulting argb color
-     * 
+     *
      * @hide Pending API council
      */
     public static int HSBtoColor(float[] hsb) {
         return HSBtoColor(hsb[0], hsb[1], hsb[2]);
     }
-    
+
     /**
      * Convert HSB components to an ARGB color. Alpha set to 0xFF.
      *     hsv[0] is Hue [0 .. 1)
@@ -247,18 +250,18 @@ public class Color {
      * @param s Saturation component
      * @param b Brightness component
      * @return the resulting argb color
-     * 
+     *
      * @hide Pending API council
      */
     public static int HSBtoColor(float h, float s, float b) {
         h = MathUtils.constrain(h, 0.0f, 1.0f);
         s = MathUtils.constrain(s, 0.0f, 1.0f);
         b = MathUtils.constrain(b, 0.0f, 1.0f);
-        
+
         float red = 0.0f;
         float green = 0.0f;
         float blue = 0.0f;
-        
+
         final float hf = (h - (int) h) * 6.0f;
         final int ihf = (int) hf;
         final float f = hf - ihf;
@@ -363,8 +366,30 @@ public class Color {
         return nativeHSVToColor(alpha, hsv);
     }
 
-    private static native void nativeRGBToHSV(int red, int greed, int blue, float hsv[]); 
+    private static native void nativeRGBToHSV(int red, int greed, int blue, float hsv[]);
     private static native int nativeHSVToColor(int alpha, float hsv[]);
+
+    /**
+     * Converts an HTML color (named or numeric) to an integer RGB value.
+     *
+     * @param color Non-null color string.
+     *
+     * @return A color value, or {@code -1} if the color string could not be interpreted.
+     *
+     * @hide
+     */
+    public static int getHtmlColor(String color) {
+        Integer i = sColorNameMap.get(color.toLowerCase());
+        if (i != null) {
+            return i;
+        } else {
+            try {
+                return XmlUtils.convertValueToInt(color, -1);
+            } catch (NumberFormatException nfe) {
+                return -1;
+            }
+        }
+    }
 
     private static final HashMap<String, Integer> sColorNameMap;
 
@@ -381,6 +406,18 @@ public class Color {
         sColorNameMap.put("yellow", YELLOW);
         sColorNameMap.put("cyan", CYAN);
         sColorNameMap.put("magenta", MAGENTA);
+        sColorNameMap.put("aqua", 0x00FFFF);
+        sColorNameMap.put("fuchsia", 0xFF00FF);
+        sColorNameMap.put("darkgrey", DKGRAY);
+        sColorNameMap.put("grey", GRAY);
+        sColorNameMap.put("lightgrey", LTGRAY);
+        sColorNameMap.put("lime", 0x00FF00);
+        sColorNameMap.put("maroon", 0x800000);
+        sColorNameMap.put("navy", 0x000080);
+        sColorNameMap.put("olive", 0x808000);
+        sColorNameMap.put("purple", 0x800080);
+        sColorNameMap.put("silver", 0xC0C0C0);
+        sColorNameMap.put("teal", 0x008080);
+
     }
 }
-

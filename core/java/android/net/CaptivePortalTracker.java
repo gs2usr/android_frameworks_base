@@ -25,14 +25,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.net.ConnectivityManager;
 import android.net.IConnectivityManager;
+import android.os.Handler;
 import android.os.UserHandle;
 import android.os.Message;
 import android.os.RemoteException;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
-import android.util.Log;
+import android.text.TextUtils;
 
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.Inet4Address;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.UnknownHostException;
 
@@ -51,17 +54,15 @@ import com.android.internal.R;
  * @hide
  */
 public class CaptivePortalTracker extends StateMachine {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "CaptivePortalTracker";
 
     private static final String DEFAULT_SERVER = "clients3.google.com";
-    private static final String NOTIFICATION_ID = "CaptivePortal.Notification";
 
     private static final int SOCKET_TIMEOUT_MS = 10000;
 
     private String mServer;
     private String mUrl;
-    private boolean mNotificationShown = false;
     private boolean mIsCaptivePortalCheckEnabled = false;
     private IConnectivityManager mConnService;
     private TelephonyManager mTelephonyManager;
@@ -81,15 +82,21 @@ public class CaptivePortalTracker extends StateMachine {
     private State mActiveNetworkState = new ActiveNetworkState();
     private State mDelayedCaptiveCheckState = new DelayedCaptiveCheckState();
 
+    private static final String SETUP_WIZARD_PACKAGE = "com.google.android.setupwizard";
+    private boolean mDeviceProvisioned = false;
+    private ProvisioningObserver mProvisioningObserver;
+
     private CaptivePortalTracker(Context context, IConnectivityManager cs) {
         super(TAG);
 
         mContext = context;
         mConnService = cs;
         mTelephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        mProvisioningObserver = new ProvisioningObserver();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION_IMMEDIATE);
         mContext.registerReceiver(mReceiver, filter);
 
         mServer = Settings.Global.getString(mContext.getContentResolver(),
@@ -106,11 +113,31 @@ public class CaptivePortalTracker extends StateMachine {
         setInitialState(mNoActiveNetworkState);
     }
 
+    private class ProvisioningObserver extends ContentObserver {
+        ProvisioningObserver() {
+            super(new Handler());
+            mContext.getContentResolver().registerContentObserver(Settings.Global.getUriFor(
+                    Settings.Global.DEVICE_PROVISIONED), false, this);
+            onChange(false); // load initial value
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            mDeviceProvisioned = Settings.Global.getInt(mContext.getContentResolver(),
+                    Settings.Global.DEVICE_PROVISIONED, 0) != 0;
+        }
+    }
+
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (action.equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
+            // Normally, we respond to CONNECTIVITY_ACTION, allowing time for the change in
+            // connectivity to stabilize, but if the device is not yet provisioned, respond
+            // immediately to speed up transit through the setup wizard.
+            if ((mDeviceProvisioned && action.equals(ConnectivityManager.CONNECTIVITY_ACTION))
+                    || (!mDeviceProvisioned
+                            && action.equals(ConnectivityManager.CONNECTIVITY_ACTION_IMMEDIATE))) {
                 NetworkInfo info = intent.getParcelableExtra(
                         ConnectivityManager.EXTRA_NETWORK_INFO);
                 sendMessage(obtainMessage(CMD_CONNECTIVITY_CHANGE, info));
@@ -132,12 +159,12 @@ public class CaptivePortalTracker extends StateMachine {
     private class DefaultState extends State {
         @Override
         public void enter() {
-            if (DBG) log(getName() + "\n");
+            setNotificationOff();
         }
 
         @Override
         public boolean processMessage(Message message) {
-            if (DBG) log(getName() + message.toString() + "\n");
+            if (DBG) log(getName() + message.toString());
             switch (message.what) {
                 case CMD_DETECT_PORTAL:
                     NetworkInfo info = (NetworkInfo) message.obj;
@@ -159,23 +186,24 @@ public class CaptivePortalTracker extends StateMachine {
     private class NoActiveNetworkState extends State {
         @Override
         public void enter() {
-            if (DBG) log(getName() + "\n");
             mNetworkInfo = null;
-            /* Clear any previous notification */
-            setNotificationVisible(false);
         }
 
         @Override
         public boolean processMessage(Message message) {
-            if (DBG) log(getName() + message.toString() + "\n");
+            if (DBG) log(getName() + message.toString());
             InetAddress server;
             NetworkInfo info;
             switch (message.what) {
                 case CMD_CONNECTIVITY_CHANGE:
                     info = (NetworkInfo) message.obj;
-                    if (info.isConnected() && isActiveNetwork(info)) {
-                        mNetworkInfo = info;
-                        transitionTo(mDelayedCaptiveCheckState);
+                    if (info.getType() == ConnectivityManager.TYPE_WIFI) {
+                        if (info.isConnected() && isActiveNetwork(info)) {
+                            mNetworkInfo = info;
+                            transitionTo(mDelayedCaptiveCheckState);
+                        }
+                    } else {
+                        log(getName() + " not a wifi connectivity change, ignore");
                     }
                     break;
                 default:
@@ -188,7 +216,7 @@ public class CaptivePortalTracker extends StateMachine {
     private class ActiveNetworkState extends State {
         @Override
         public void enter() {
-            if (DBG) log(getName() + "\n");
+            setNotificationOff();
         }
 
         @Override
@@ -221,25 +249,47 @@ public class CaptivePortalTracker extends StateMachine {
     private class DelayedCaptiveCheckState extends State {
         @Override
         public void enter() {
-            if (DBG) log(getName() + "\n");
-            sendMessageDelayed(obtainMessage(CMD_DELAYED_CAPTIVE_CHECK,
-                        ++mDelayedCheckToken, 0), DELAYED_CHECK_INTERVAL_MS);
+            Message message = obtainMessage(CMD_DELAYED_CAPTIVE_CHECK, ++mDelayedCheckToken, 0);
+            if (mDeviceProvisioned) {
+                sendMessageDelayed(message, DELAYED_CHECK_INTERVAL_MS);
+            } else {
+                sendMessage(message);
+            }
         }
 
         @Override
         public boolean processMessage(Message message) {
-            if (DBG) log(getName() + message.toString() + "\n");
+            if (DBG) log(getName() + message.toString());
             switch (message.what) {
                 case CMD_DELAYED_CAPTIVE_CHECK:
                     if (message.arg1 == mDelayedCheckToken) {
                         InetAddress server = lookupHost(mServer);
-                        if (server != null) {
-                            if (isCaptivePortal(server)) {
-                                if (DBG) log("Captive network " + mNetworkInfo);
-                                setNotificationVisible(true);
-                            }
+                        boolean captive = server != null && isCaptivePortal(server);
+                        if (captive) {
+                            if (DBG) log("Captive network " + mNetworkInfo);
+                        } else {
+                            if (DBG) log("Not captive network " + mNetworkInfo);
                         }
-                        if (DBG) log("Not captive network " + mNetworkInfo);
+                        notifyPortalCheckCompleted(mNetworkInfo, captive);
+                        if (mDeviceProvisioned) {
+                            if (captive) {
+                                // Setup Wizard will assist the user in connecting to a captive
+                                // portal, so make the notification visible unless during setup
+                                try {
+                                    mConnService.setProvisioningNotificationVisible(true,
+                                        mNetworkInfo.getType(), mNetworkInfo.getExtraInfo(), mUrl);
+                                } catch(RemoteException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        } else {
+                            Intent intent = new Intent(
+                                    ConnectivityManager.ACTION_CAPTIVE_PORTAL_TEST_COMPLETED);
+                            intent.putExtra(ConnectivityManager.EXTRA_IS_CAPTIVE_PORTAL, captive);
+                            intent.setPackage(SETUP_WIZARD_PACKAGE);
+                            mContext.sendBroadcast(intent);
+                        }
+
                         transitionTo(mActiveNetworkState);
                     }
                     break;
@@ -256,7 +306,21 @@ public class CaptivePortalTracker extends StateMachine {
             return;
         }
         try {
+            if (DBG) log("notifyPortalCheckComplete: ni=" + info);
             mConnService.captivePortalCheckComplete(info);
+        } catch(RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void notifyPortalCheckCompleted(NetworkInfo info, boolean isCaptivePortal) {
+        if (info == null) {
+            loge("notifyPortalCheckComplete on null");
+            return;
+        }
+        try {
+            if (DBG) log("notifyPortalCheckCompleted: captive=" + isCaptivePortal + " ni=" + info);
+            mConnService.captivePortalCheckCompleted(info, isCaptivePortal);
         } catch(RemoteException e) {
             e.printStackTrace();
         }
@@ -272,6 +336,15 @@ public class CaptivePortalTracker extends StateMachine {
             e.printStackTrace();
         }
         return false;
+    }
+
+    private void setNotificationOff() {
+        try {
+            mConnService.setProvisioningNotificationVisible(false, ConnectivityManager.TYPE_NONE,
+                    null, null);
+        } catch (RemoteException e) {
+            log("setNotificationOff: " + e);
+        }
     }
 
     /**
@@ -316,67 +389,4 @@ public class CaptivePortalTracker extends StateMachine {
         }
         return null;
     }
-
-    private void setNotificationVisible(boolean visible) {
-        // if it should be hidden and it is already hidden, then noop
-        if (!visible && !mNotificationShown) {
-            return;
-        }
-
-        Resources r = Resources.getSystem();
-        NotificationManager notificationManager = (NotificationManager) mContext
-            .getSystemService(Context.NOTIFICATION_SERVICE);
-
-        if (visible) {
-            CharSequence title;
-            CharSequence details;
-            int icon;
-            switch (mNetworkInfo.getType()) {
-                case ConnectivityManager.TYPE_WIFI:
-                    title = r.getString(R.string.wifi_available_sign_in, 0);
-                    details = r.getString(R.string.network_available_sign_in_detailed,
-                            mNetworkInfo.getExtraInfo());
-                    icon = R.drawable.stat_notify_wifi_in_range;
-                    break;
-                case ConnectivityManager.TYPE_MOBILE:
-                    title = r.getString(R.string.network_available_sign_in, 0);
-                    // TODO: Change this to pull from NetworkInfo once a printable
-                    // name has been added to it
-                    details = mTelephonyManager.getNetworkOperatorName();
-                    icon = R.drawable.stat_notify_rssi_in_range;
-                    break;
-                default:
-                    title = r.getString(R.string.network_available_sign_in, 0);
-                    details = r.getString(R.string.network_available_sign_in_detailed,
-                            mNetworkInfo.getExtraInfo());
-                    icon = R.drawable.stat_notify_rssi_in_range;
-                    break;
-            }
-
-            Notification notification = new Notification();
-            notification.when = 0;
-            notification.icon = icon;
-            notification.flags = Notification.FLAG_AUTO_CANCEL;
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(mUrl));
-            intent.setFlags(Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT |
-                    Intent.FLAG_ACTIVITY_NEW_TASK);
-            notification.contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
-            notification.tickerText = title;
-            notification.setLatestEventInfo(mContext, title, details, notification.contentIntent);
-
-            notificationManager.notify(NOTIFICATION_ID, 1, notification);
-        } else {
-            notificationManager.cancel(NOTIFICATION_ID, 1);
-        }
-        mNotificationShown = visible;
-    }
-
-    private static void log(String s) {
-        Log.d(TAG, s);
-    }
-
-    private static void loge(String s) {
-        Log.e(TAG, s);
-    }
-
 }

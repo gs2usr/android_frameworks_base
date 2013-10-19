@@ -362,7 +362,12 @@ public final class LoadedApk {
         try {
             pi = pm.getPackageInfo(mPackageName, 0, UserHandle.myUserId());
         } catch (RemoteException e) {
-            throw new AssertionError(e);
+            throw new IllegalStateException("Unable to get package info for "
+                    + mPackageName + "; is system dying?", e);
+        }
+        if (pi == null) {
+            throw new IllegalStateException("Unable to get package info for "
+                    + mPackageName + "; is package not installed?");
         }
         /*
          * Two possible indications that this package could be
@@ -520,7 +525,7 @@ public final class LoadedApk {
                 }
             }
         }
-        
+
         return app;
     }
 
@@ -723,11 +728,11 @@ public final class LoadedApk {
                 mCurIntent = intent;
                 mOrdered = ordered;
             }
-            
+
             public void run() {
                 final BroadcastReceiver receiver = mReceiver;
                 final boolean ordered = mOrdered;
-                
+
                 if (ActivityThread.DEBUG_BROADCAST) {
                     int seq = mCurIntent.getIntExtra("seq", -1);
                     Slog.i(ActivityThread.TAG, "Dispatching broadcast " + mCurIntent.getAction()
@@ -735,11 +740,11 @@ public final class LoadedApk {
                     Slog.i(ActivityThread.TAG, "  mRegistered=" + mRegistered
                             + " mOrderedHint=" + ordered);
                 }
-                
+
                 final IActivityManager mgr = ActivityManagerNative.getDefault();
                 final Intent intent = mCurIntent;
                 mCurIntent = null;
-                
+
                 if (receiver == null || mForgotten) {
                     if (mRegistered && ordered) {
                         if (ActivityThread.DEBUG_BROADCAST) Slog.i(ActivityThread.TAG,
@@ -770,7 +775,7 @@ public final class LoadedApk {
                             + " in " + mReceiver, e);
                     }
                 }
-                
+
                 if (receiver.getPendingResult() != null) {
                     finish();
                 }

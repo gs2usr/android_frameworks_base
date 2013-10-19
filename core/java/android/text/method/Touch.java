@@ -64,7 +64,9 @@ public class Touch {
         if (actualWidth < availableWidth) {
             if (a == Alignment.ALIGN_CENTER) {
                 x = left - ((availableWidth - actualWidth) / 2);
-            } else if ((ltr && (a == Alignment.ALIGN_OPPOSITE)) || (a == Alignment.ALIGN_RIGHT)) {
+            } else if ((ltr && (a == Alignment.ALIGN_OPPOSITE)) ||
+                       (!ltr && (a == Alignment.ALIGN_NORMAL)) ||
+                       (a == Alignment.ALIGN_RIGHT)) {
                 // align_opposite does NOT mean align_right, we need the paragraph
                 // direction to resolve it to left or right
                 x = left - (availableWidth - actualWidth);
@@ -155,7 +157,7 @@ public class Touch {
 
                     ny = Math.min(ny, layout.getHeight() - (widget.getHeight() - padding));
                     ny = Math.max(ny, 0);
-        
+
                     int oldX = widget.getScrollX();
                     int oldY = widget.getScrollY();
 

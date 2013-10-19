@@ -76,6 +76,15 @@ public class DisplayMetrics extends ExtendedPropertiesUtils {
     public static final int DENSITY_XXHIGH = 480;
 
     /**
+     * Standard quantized DPI for extra-extra-extra-high-density screens.  Applications
+     * should not generally worry about this density; relying on XHIGH graphics
+     * being scaled up to it should be sufficient for almost all cases.  A typical
+     * use of this density would be 4K television screens -- 3840x2160, which
+     * is 2x a traditional HD 1920x1080 screen which runs at DENSITY_XHIGH.
+     */
+    public static final int DENSITY_XXXHIGH = 640;
+
+    /**
      * The reference density used throughout the system.
      */
     public static final int DENSITY_DEFAULT = DENSITY_MEDIUM;
@@ -112,16 +121,16 @@ public class DisplayMetrics extends ExtendedPropertiesUtils {
     /**
      * The logical density of the display.  This is a scaling factor for the
      * Density Independent Pixel unit, where one DIP is one pixel on an
-     * approximately 160 dpi screen (for example a 240x320, 1.5"x2" screen), 
-     * providing the baseline of the system's display. Thus on a 160dpi screen 
+     * approximately 160 dpi screen (for example a 240x320, 1.5"x2" screen),
+     * providing the baseline of the system's display. Thus on a 160dpi screen
      * this density value will be 1; on a 120 dpi screen it would be .75; etc.
-     *  
-     * <p>This value does not exactly follow the real screen size (as given by 
+     *
+     * <p>This value does not exactly follow the real screen size (as given by
      * {@link #xdpi} and {@link #ydpi}, but rather is used to scale the size of
-     * the overall UI in steps based on gross changes in the display dpi.  For 
-     * example, a 240x320 screen will have a density of 1 even if its width is 
-     * 1.8", 1.3", etc. However, if the screen resolution is increased to 
-     * 320x480 but the screen size remained 1.5"x2" then the density would be 
+     * the overall UI in steps based on gross changes in the display dpi.  For
+     * example, a 240x320 screen will have a density of 1 even if its width is
+     * 1.8", 1.3", etc. However, if the screen resolution is increased to
+     * 320x480 but the screen size remained 1.5"x2" then the density would be
      * increased (probably to 1.5).
      *
      * @see #DENSITY_DEFAULT
@@ -215,7 +224,7 @@ public class DisplayMetrics extends ExtendedPropertiesUtils {
 
     public DisplayMetrics() {
     }
-    
+
     public void setTo(DisplayMetrics o) {
         widthPixels = o.widthPixels;
         heightPixels = o.heightPixels;
@@ -233,7 +242,7 @@ public class DisplayMetrics extends ExtendedPropertiesUtils {
         noncompatYdpi = o.noncompatYdpi;
         paranoidHook();
     }
-    
+
     public void setToDefaults() {
         widthPixels = 0;
         heightPixels = 0;

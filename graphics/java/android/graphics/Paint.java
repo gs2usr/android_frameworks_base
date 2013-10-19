@@ -73,7 +73,7 @@ public class Paint {
      * @hide
      */
     public  int         mBidiFlags = BIDI_DEFAULT_LTR;
-    
+
     static final Style[] sStyleArray = {
         Style.FILL, Style.STROKE, Style.FILL_AND_STROKE
     };
@@ -121,14 +121,14 @@ public class Paint {
 
     /**
      * Bidi flag to set LTR paragraph direction.
-     * 
+     *
      * @hide
      */
     public static final int BIDI_LTR = 0x0;
 
     /**
      * Bidi flag to set RTL paragraph direction.
-     * 
+     *
      * @hide
      */
     public static final int BIDI_RTL = 0x1;
@@ -136,7 +136,7 @@ public class Paint {
     /**
      * Bidi flag to detect paragraph direction via heuristics, defaulting to
      * LTR.
-     * 
+     *
      * @hide
      */
     public static final int BIDI_DEFAULT_LTR = 0x2;
@@ -144,21 +144,21 @@ public class Paint {
     /**
      * Bidi flag to detect paragraph direction via heuristics, defaulting to
      * RTL.
-     * 
+     *
      * @hide
      */
     public static final int BIDI_DEFAULT_RTL = 0x3;
 
     /**
      * Bidi flag to override direction to all LTR (ignore bidi).
-     * 
+     *
      * @hide
      */
     public static final int BIDI_FORCE_LTR = 0x4;
 
     /**
      * Bidi flag to override direction to all RTL (ignore bidi).
-     * 
+     *
      * @hide
      */
     public static final int BIDI_FORCE_RTL = 0x5;
@@ -250,7 +250,7 @@ public class Paint {
          * either FILL or STROKE.
          */
         FILL_AND_STROKE (2);
-        
+
         Style(int nativeInt) {
             this.nativeInt = nativeInt;
         }
@@ -276,7 +276,7 @@ public class Paint {
          * of the path.
          */
         SQUARE  (2);
-        
+
         private Cap(int nativeInt) {
             this.nativeInt = nativeInt;
         }
@@ -300,7 +300,7 @@ public class Paint {
          * The outer edges of a join meet with a straight line
          */
         BEVEL   (2);
-        
+
         private Join(int nativeInt) {
             this.nativeInt = nativeInt;
         }
@@ -324,7 +324,7 @@ public class Paint {
          * The text is drawn to the left of the x,y origin
          */
         RIGHT   (2);
-        
+
         private Align(int nativeInt) {
             this.nativeInt = nativeInt;
         }
@@ -337,7 +337,7 @@ public class Paint {
     public Paint() {
         this(0);
     }
-    
+
     /**
      * Create a new paint with the specified flags. Use setFlags() to change
      * these after the paint is created.
@@ -398,7 +398,7 @@ public class Paint {
         mBidiFlags = BIDI_DEFAULT_LTR;
         setTextLocale(Locale.getDefault());
     }
-    
+
     /**
      * Copy the fields from src into this paint. This is equivalent to calling
      * get() on all of the src fields, and calling the corresponding set()
@@ -453,7 +453,7 @@ public class Paint {
 
     /**
      * Return the bidi flags on the paint.
-     * 
+     *
      * @return the bidi flags on the paint
      * @hide
      */
@@ -476,7 +476,7 @@ public class Paint {
 
     /**
      * Return the paint's flags. Use the Flag enum to test flag values.
-     * 
+     *
      * @return the paint's flags (see enums ending in _Flag for bit masks)
      */
     public native int getFlags();
@@ -511,7 +511,7 @@ public class Paint {
     public final boolean isAntiAlias() {
         return (getFlags() & ANTI_ALIAS_FLAG) != 0;
     }
-    
+
     /**
      * Helper for setFlags(), setting or clearing the ANTI_ALIAS_FLAG bit
      * AntiAliasing smooths out the edges of what is being drawn, but is has
@@ -521,7 +521,7 @@ public class Paint {
      * @param aa true to set the antialias bit in the flags, false to clear it
      */
     public native void setAntiAlias(boolean aa);
-    
+
     /**
      * Helper for getFlags(), returning true if DITHER_FLAG bit is set
      * Dithering affects how colors that are higher precision than the device
@@ -535,7 +535,7 @@ public class Paint {
     public final boolean isDither() {
         return (getFlags() & DITHER_FLAG) != 0;
     }
-    
+
     /**
      * Helper for setFlags(), setting or clearing the DITHER_FLAG bit
      * Dithering affects how colors that are higher precision than the device
@@ -547,13 +547,12 @@ public class Paint {
      * @param dither true to set the dithering bit in flags, false to clear it
      */
     public native void setDither(boolean dither);
-    
+
     /**
      * Helper for getFlags(), returning true if LINEAR_TEXT_FLAG bit is set
      *
      * @return true if the lineartext bit is set in the paint's flags
      */
-    @Deprecated
     public final boolean isLinearText() {
         return (getFlags() & LINEAR_TEXT_FLAG) != 0;
     }
@@ -564,7 +563,6 @@ public class Paint {
      * @param linearText true to set the linearText bit in the paint's flags,
      *                   false to clear it.
      */
-    @Deprecated
     public native void setLinearText(boolean linearText);
 
     /**
@@ -575,7 +573,7 @@ public class Paint {
     public final boolean isSubpixelText() {
         return (getFlags() & SUBPIXEL_TEXT_FLAG) != 0;
     }
-    
+
     /**
      * Helper for setFlags(), setting or clearing the SUBPIXEL_TEXT_FLAG bit
      *
@@ -583,7 +581,7 @@ public class Paint {
      *                     flags, false to clear it.
      */
     public native void setSubpixelText(boolean subpixelText);
-    
+
     /**
      * Helper for getFlags(), returning true if UNDERLINE_TEXT_FLAG bit is set
      *
@@ -634,7 +632,7 @@ public class Paint {
      *                     flags, false to clear it.
      */
     public native void setFakeBoldText(boolean fakeBoldText);
-    
+
     /**
      * Whether or not the bitmap filter is activated.
      * Filtering affects the sampling of bitmaps when they are transformed.
@@ -646,13 +644,13 @@ public class Paint {
     public final boolean isFilterBitmap() {
         return (getFlags() & FILTER_BITMAP_FLAG) != 0;
     }
-    
+
     /**
      * Helper for setFlags(), setting or clearing the FILTER_BITMAP_FLAG bit.
      * Filtering affects the sampling of bitmaps when they are transformed.
      * Filtering does not affect how the colors in the bitmap are converted into
      * device pixels. That is dependent on dithering and xfermodes.
-     * 
+     *
      * @param filter true to set the FILTER_BITMAP_FLAG bit in the paint's
      *               flags, false to clear it.
      */
@@ -699,7 +697,7 @@ public class Paint {
      * @param color The new color (including alpha) to set in the paint.
      */
     public native void setColor(int color);
-    
+
     /**
      * Helper to getColor() that just returns the color's alpha value. This is
      * the same as calling getColor() >>> 24. It always returns a value between
@@ -989,7 +987,7 @@ public class Paint {
         mTypeface = typeface;
         return typeface;
     }
-    
+
     /**
      * Get the paint's rasterizer (or null).
      * <p />
@@ -1020,7 +1018,7 @@ public class Paint {
         mRasterizer = rasterizer;
         return rasterizer;
     }
-    
+
     /**
      * This draws a shadow layer below the main layer, with the specified
      * offset and color, and blur radius. If radius is 0, then the shadow
@@ -1034,7 +1032,7 @@ public class Paint {
         shadowColor = color;
         nSetShadowLayer(radius, dx, dy, color);
     }
-    
+
     private native void nSetShadowLayer(float radius, float dx, float dy, int color);
 
     /**
@@ -1186,7 +1184,7 @@ public class Paint {
      */
     public static class FontMetrics {
         /**
-         * The maximum distance above the baseline for the tallest glyph in 
+         * The maximum distance above the baseline for the tallest glyph in
          * the font at a given text size.
          */
         public float   top;
@@ -1199,7 +1197,7 @@ public class Paint {
          */
         public float   descent;
         /**
-         * The maximum distance below the baseline for the lowest glyph in 
+         * The maximum distance below the baseline for the lowest glyph in
          * the font at a given text size.
          */
         public float   bottom;
@@ -1208,7 +1206,7 @@ public class Paint {
          */
         public float   leading;
     }
-    
+
     /**
      * Return the font's recommended interline spacing, given the Paint's
      * settings for typeface, textSize, etc. If metrics is not null, return the
@@ -1219,7 +1217,7 @@ public class Paint {
      * @return the font's recommended interline spacing.
      */
     public native float getFontMetrics(FontMetrics metrics);
-    
+
     /**
      * Allocates a new FontMetrics object, and then calls getFontMetrics(fm)
      * with it, returning the object.
@@ -1229,7 +1227,7 @@ public class Paint {
         getFontMetrics(fm);
         return fm;
     }
-    
+
     /**
      * Convenience method for callers that want to have FontMetrics values as
      * integers.
@@ -1240,7 +1238,7 @@ public class Paint {
         public int   descent;
         public int   bottom;
         public int   leading;
-        
+
         @Override public String toString() {
             return "FontMetricsInt: top=" + top + " ascent=" + ascent +
                     " descent=" + descent + " bottom=" + bottom +
@@ -1265,7 +1263,7 @@ public class Paint {
         getFontMetricsInt(fm);
         return fm;
     }
-    
+
     /**
      * Return the recommend line spacing based on the current typeface and
      * text size.
@@ -1297,18 +1295,18 @@ public class Paint {
             return 0f;
         }
         if (!mHasCompatScaling) {
-            return native_measureText(text, index, count);
+            return (float) Math.ceil(native_measureText(text, index, count, mBidiFlags));
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        float w = native_measureText(text, index, count);
+        float w = native_measureText(text, index, count, mBidiFlags);
         setTextSize(oldSize);
-        return w*mInvCompatScaling;
+        return (float) Math.ceil(w*mInvCompatScaling);
     }
 
-    private native float native_measureText(char[] text, int index, int count);
-    
+    private native float native_measureText(char[] text, int index, int count, int bidiFlags);
+
     /**
      * Return the width of the text.
      *
@@ -1329,18 +1327,18 @@ public class Paint {
             return 0f;
         }
         if (!mHasCompatScaling) {
-            return native_measureText(text, start, end);
+            return (float) Math.ceil(native_measureText(text, start, end, mBidiFlags));
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        float w = native_measureText(text, start, end);
+        float w = native_measureText(text, start, end, mBidiFlags);
         setTextSize(oldSize);
-        return w*mInvCompatScaling;
+        return (float) Math.ceil(w*mInvCompatScaling);
     }
 
-    private native float native_measureText(String text, int start, int end);
-    
+    private native float native_measureText(String text, int start, int end, int bidiFlags);
+
     /**
      * Return the width of the text.
      *
@@ -1356,16 +1354,18 @@ public class Paint {
             return 0f;
         }
 
-        if (!mHasCompatScaling) return native_measureText(text);
+        if (!mHasCompatScaling) {
+            return (float) Math.ceil(native_measureText(text, mBidiFlags));
+        }
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        float w = native_measureText(text);
+        float w = native_measureText(text, mBidiFlags);
         setTextSize(oldSize);
-        return w*mInvCompatScaling;
+        return (float) Math.ceil(w*mInvCompatScaling);
     }
 
-    private native float native_measureText(String text);
-    
+    private native float native_measureText(String text, int bidiFlags);
+
     /**
      * Return the width of the text.
      *
@@ -1402,7 +1402,7 @@ public class Paint {
         TemporaryBuffer.recycle(buf);
         return result;
     }
-    
+
     /**
      * Measure the text, stopping early if the measured width exceeds maxWidth.
      * Return the number of chars that were measured, and if measuredWidth is
@@ -1431,12 +1431,12 @@ public class Paint {
             return 0;
         }
         if (!mHasCompatScaling) {
-            return native_breakText(text, index, count, maxWidth, measuredWidth);
+            return native_breakText(text, index, count, maxWidth, mBidiFlags, measuredWidth);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        int res = native_breakText(text, index, count, maxWidth*mCompatScaling,
+        int res = native_breakText(text, index, count, maxWidth*mCompatScaling, mBidiFlags,
                 measuredWidth);
         setTextSize(oldSize);
         if (measuredWidth != null) measuredWidth[0] *= mInvCompatScaling;
@@ -1444,7 +1444,7 @@ public class Paint {
     }
 
     private native int native_breakText(char[] text, int index, int count,
-                                        float maxWidth, float[] measuredWidth);
+                                        float maxWidth, int bidiFlags, float[] measuredWidth);
 
     /**
      * Measure the text, stopping early if the measured width exceeds maxWidth.
@@ -1521,12 +1521,12 @@ public class Paint {
             return 0;
         }
         if (!mHasCompatScaling) {
-            return native_breakText(text, measureForwards, maxWidth, measuredWidth);
+            return native_breakText(text, measureForwards, maxWidth, mBidiFlags, measuredWidth);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        int res = native_breakText(text, measureForwards, maxWidth*mCompatScaling,
+        int res = native_breakText(text, measureForwards, maxWidth*mCompatScaling, mBidiFlags,
                 measuredWidth);
         setTextSize(oldSize);
         if (measuredWidth != null) measuredWidth[0] *= mInvCompatScaling;
@@ -1534,7 +1534,7 @@ public class Paint {
     }
 
     private native int native_breakText(String text, boolean measureForwards,
-                                        float maxWidth, float[] measuredWidth);
+                                        float maxWidth, int bidiFlags, float[] measuredWidth);
 
     /**
      * Return the advance widths for the characters in the string.
@@ -1560,12 +1560,12 @@ public class Paint {
             return 0;
         }
         if (!mHasCompatScaling) {
-            return native_getTextWidths(mNativePaint, text, index, count, widths);
+            return native_getTextWidths(mNativePaint, text, index, count, mBidiFlags, widths);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        int res = native_getTextWidths(mNativePaint, text, index, count, widths);
+        int res = native_getTextWidths(mNativePaint, text, index, count, mBidiFlags, widths);
         setTextSize(oldSize);
         for (int i=0; i<res; i++) {
             widths[i] *= mInvCompatScaling;
@@ -1637,24 +1637,24 @@ public class Paint {
         if (end - start > widths.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
-        
+
         if (text.length() == 0 || start == end) {
             return 0;
         }
         if (!mHasCompatScaling) {
-            return native_getTextWidths(mNativePaint, text, start, end, widths);
+            return native_getTextWidths(mNativePaint, text, start, end, mBidiFlags, widths);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize*mCompatScaling);
-        int res = native_getTextWidths(mNativePaint, text, start, end, widths);
+        int res = native_getTextWidths(mNativePaint, text, start, end, mBidiFlags, widths);
         setTextSize(oldSize);
         for (int i=0; i<res; i++) {
             widths[i] *= mInvCompatScaling;
         }
         return res;
     }
-    
+
     /**
      * Return the advance widths for the characters in the string.
      *
@@ -1717,20 +1717,6 @@ public class Paint {
     public float getTextRunAdvances(char[] chars, int index, int count,
             int contextIndex, int contextCount, int flags, float[] advances,
             int advancesIndex) {
-        return getTextRunAdvances(chars, index, count, contextIndex, contextCount, flags,
-                advances, advancesIndex, 0 /* use Harfbuzz*/);
-    }
-
-    /**
-     * Convenience overload that takes a char array instead of a
-     * String.
-     *
-     * @see #getTextRunAdvances(String, int, int, int, int, int, float[], int, int)
-     * @hide
-     */
-    public float getTextRunAdvances(char[] chars, int index, int count,
-            int contextIndex, int contextCount, int flags, float[] advances,
-            int advancesIndex, int reserved) {
 
         if (chars == null) {
             throw new IllegalArgumentException("text cannot be null");
@@ -1752,13 +1738,13 @@ public class Paint {
         }
         if (!mHasCompatScaling) {
             return native_getTextRunAdvances(mNativePaint, chars, index, count,
-                    contextIndex, contextCount, flags, advances, advancesIndex, reserved);
+                    contextIndex, contextCount, flags, advances, advancesIndex);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize * mCompatScaling);
         float res = native_getTextRunAdvances(mNativePaint, chars, index, count,
-                contextIndex, contextCount, flags, advances, advancesIndex, reserved);
+                contextIndex, contextCount, flags, advances, advancesIndex);
         setTextSize(oldSize);
 
         if (advances != null) {
@@ -1779,20 +1765,6 @@ public class Paint {
     public float getTextRunAdvances(CharSequence text, int start, int end,
             int contextStart, int contextEnd, int flags, float[] advances,
             int advancesIndex) {
-        return getTextRunAdvances(text, start, end, contextStart, contextEnd, flags,
-                advances, advancesIndex, 0 /* use Harfbuzz */);
-    }
-
-    /**
-     * Convenience overload that takes a CharSequence instead of a
-     * String.
-     *
-     * @see #getTextRunAdvances(String, int, int, int, int, int, float[], int)
-     * @hide
-     */
-    public float getTextRunAdvances(CharSequence text, int start, int end,
-            int contextStart, int contextEnd, int flags, float[] advances,
-            int advancesIndex, int reserved) {
 
         if (text == null) {
             throw new IllegalArgumentException("text cannot be null");
@@ -1807,12 +1779,12 @@ public class Paint {
 
         if (text instanceof String) {
             return getTextRunAdvances((String) text, start, end,
-                    contextStart, contextEnd, flags, advances, advancesIndex, reserved);
+                    contextStart, contextEnd, flags, advances, advancesIndex);
         }
         if (text instanceof SpannedString ||
             text instanceof SpannableString) {
             return getTextRunAdvances(text.toString(), start, end,
-                    contextStart, contextEnd, flags, advances, advancesIndex, reserved);
+                    contextStart, contextEnd, flags, advances, advancesIndex);
         }
         if (text instanceof GraphicsOperations) {
             return ((GraphicsOperations) text).getTextRunAdvances(start, end,
@@ -1827,7 +1799,7 @@ public class Paint {
         char[] buf = TemporaryBuffer.obtain(contextLen);
         TextUtils.getChars(text, contextStart, contextEnd, buf, 0);
         float result = getTextRunAdvances(buf, start - contextStart, len,
-                0, contextLen, flags, advances, advancesIndex, reserved);
+                0, contextLen, flags, advances, advancesIndex);
         TemporaryBuffer.recycle(buf);
         return result;
     }
@@ -1876,55 +1848,6 @@ public class Paint {
      */
     public float getTextRunAdvances(String text, int start, int end, int contextStart,
             int contextEnd, int flags, float[] advances, int advancesIndex) {
-        return getTextRunAdvances(text, start, end, contextStart, contextEnd, flags,
-                advances, advancesIndex, 0 /* use Harfbuzz*/);
-    }
-
-    /**
-     * Returns the total advance width for the characters in the run
-     * between start and end, and if advances is not null, the advance
-     * assigned to each of these characters (java chars).
-     *
-     * <p>The trailing surrogate in a valid surrogate pair is assigned
-     * an advance of 0.  Thus the number of returned advances is
-     * always equal to count, not to the number of unicode codepoints
-     * represented by the run.
-     *
-     * <p>In the case of conjuncts or combining marks, the total
-     * advance is assigned to the first logical character, and the
-     * following characters are assigned an advance of 0.
-     *
-     * <p>This generates the sum of the advances of glyphs for
-     * characters in a reordered cluster as the width of the first
-     * logical character in the cluster, and 0 for the widths of all
-     * other characters in the cluster.  In effect, such clusters are
-     * treated like conjuncts.
-     *
-     * <p>The shaping bounds limit the amount of context available
-     * outside start and end that can be used for shaping analysis.
-     * These bounds typically reflect changes in bidi level or font
-     * metrics across which shaping does not occur.
-     *
-     * @param text the text to measure. Cannot be null.
-     * @param start the index of the first character to measure
-     * @param end the index past the last character to measure
-     * @param contextStart the index of the first character to use for shaping context,
-     * must be <= start
-     * @param contextEnd the index past the last character to use for shaping context,
-     * must be >= end
-     * @param flags the flags to control the advances, either {@link #DIRECTION_LTR}
-     * or {@link #DIRECTION_RTL}
-     * @param advances array to receive the advances, must have room for all advances,
-     * can be null if only total advance is needed
-     * @param advancesIndex the position in advances at which to put the
-     * advance corresponding to the character at start
-     * @param reserved int reserved value
-     * @return the total advance
-     *
-     * @hide
-     */
-    public float getTextRunAdvances(String text, int start, int end, int contextStart,
-            int contextEnd, int flags, float[] advances, int advancesIndex, int reserved) {
 
         if (text == null) {
             throw new IllegalArgumentException("text cannot be null");
@@ -1946,13 +1869,13 @@ public class Paint {
 
         if (!mHasCompatScaling) {
             return native_getTextRunAdvances(mNativePaint, text, start, end,
-                    contextStart, contextEnd, flags, advances, advancesIndex, reserved);
+                    contextStart, contextEnd, flags, advances, advancesIndex);
         }
 
         final float oldSize = getTextSize();
         setTextSize(oldSize * mCompatScaling);
         float totalAdvance = native_getTextRunAdvances(mNativePaint, text, start, end,
-                contextStart, contextEnd, flags, advances, advancesIndex, reserved);
+                contextStart, contextEnd, flags, advances, advancesIndex);
         setTextSize(oldSize);
 
         if (advances != null) {
@@ -2107,7 +2030,7 @@ public class Paint {
         if ((index | count) < 0 || index + count > text.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
-        native_getTextPath(mNativePaint, mBidiFlags, text, index, count, x, y, 
+        native_getTextPath(mNativePaint, mBidiFlags, text, index, count, x, y,
                 path.ni());
     }
 
@@ -2129,10 +2052,10 @@ public class Paint {
         if ((start | end | (end - start) | (text.length() - end)) < 0) {
             throw new IndexOutOfBoundsException();
         }
-        native_getTextPath(mNativePaint, mBidiFlags, text, start, end, x, y, 
+        native_getTextPath(mNativePaint, mBidiFlags, text, start, end, x, y,
                 path.ni());
     }
-    
+
     /**
      * Return in bounds (allocated by the caller) the smallest rectangle that
      * encloses all of the characters, with an implied origin at (0,0).
@@ -2150,9 +2073,9 @@ public class Paint {
         if (bounds == null) {
             throw new NullPointerException("need bounds Rect");
         }
-        nativeGetStringBounds(mNativePaint, text, start, end, bounds);
+        nativeGetStringBounds(mNativePaint, text, start, end, mBidiFlags, bounds);
     }
-    
+
     /**
      * Return in bounds (allocated by the caller) the smallest rectangle that
      * encloses all of the characters, with an implied origin at (0,0).
@@ -2170,9 +2093,9 @@ public class Paint {
         if (bounds == null) {
             throw new NullPointerException("need bounds Rect");
         }
-        nativeGetCharArrayBounds(mNativePaint, text, index, count, bounds);
+        nativeGetCharArrayBounds(mNativePaint, text, index, count, mBidiFlags, bounds);
     }
-    
+
     @Override
     protected void finalize() throws Throwable {
         try {
@@ -2217,9 +2140,9 @@ public class Paint {
                                                     String locale);
 
     private static native int native_getTextWidths(int native_object,
-                            char[] text, int index, int count, float[] widths);
+                            char[] text, int index, int count, int bidiFlags, float[] widths);
     private static native int native_getTextWidths(int native_object,
-                            String text, int start, int end, float[] widths);
+                            String text, int start, int end, int bidiFlags, float[] widths);
 
     private static native int native_getTextGlyphs(int native_object,
             String text, int start, int end, int contextStart, int contextEnd,
@@ -2227,10 +2150,10 @@ public class Paint {
 
     private static native float native_getTextRunAdvances(int native_object,
             char[] text, int index, int count, int contextIndex, int contextCount,
-            int flags, float[] advances, int advancesIndex, int reserved);
+            int flags, float[] advances, int advancesIndex);
     private static native float native_getTextRunAdvances(int native_object,
             String text, int start, int end, int contextStart, int contextEnd,
-            int flags, float[] advances, int advancesIndex, int reserved);
+            int flags, float[] advances, int advancesIndex);
 
     private native int native_getTextRunCursor(int native_object, char[] text,
             int contextStart, int contextLength, int flags, int offset, int cursorOpt);
@@ -2242,8 +2165,8 @@ public class Paint {
     private static native void native_getTextPath(int native_object, int bidiFlags,
                 String text, int start, int end, float x, float y, int path);
     private static native void nativeGetStringBounds(int nativePaint,
-                                String text, int start, int end, Rect bounds);
+                                String text, int start, int end, int bidiFlags, Rect bounds);
     private static native void nativeGetCharArrayBounds(int nativePaint,
-                                char[] text, int index, int count, Rect bounds);
+                                char[] text, int index, int count, int bidiFlags, Rect bounds);
     private static native void finalizer(int nativePaint);
 }

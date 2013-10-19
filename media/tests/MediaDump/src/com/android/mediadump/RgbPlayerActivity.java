@@ -200,7 +200,7 @@ public class RgbPlayerActivity extends Activity {
             mHandler.sendEmptyMessage(0);
         }
 
-        @Override 
+        @Override
         protected void onDraw(Canvas canvas) {
             canvas.drawBitmap(mBitmap, mStartX, mStartY, null);
         }
@@ -243,6 +243,11 @@ public class RgbPlayerActivity extends Activity {
 
         public void start() {
             mIsPlaying = true;
+        }
+
+        @Override
+        public int getAudioSessionId() {
+            return 0;
         }
     }
 

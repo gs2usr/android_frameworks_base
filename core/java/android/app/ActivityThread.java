@@ -25,6 +25,9 @@ import com.android.internal.os.SamplingProfilerIntegration;
 
 import org.apache.harmony.xnet.provider.jsse.OpenSSLSocketImpl;
 
+import android.app.ActivityManager;
+import android.app.ActivityManagerNative;
+import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.backup.BackupAgent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentCallbacks2;
@@ -55,7 +58,6 @@ import android.database.sqlite.SQLiteDebug;
 import android.database.sqlite.SQLiteDebug.DbStats;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManagerGlobal;
 import android.net.IConnectivityManager;
 import android.net.Proxy;
@@ -79,7 +81,6 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.StrictMode;
 import android.os.SystemClock;
-import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -104,6 +105,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.WindowManagerGlobal;
 import android.renderscript.RenderScript;
+import android.security.AndroidKeyStoreProvider;
 
 import com.android.internal.util.Objects;
 
@@ -203,7 +205,8 @@ public final class ActivityThread {
             = new ArrayList<Application>();
     // set of instantiated backup agents, keyed by package name
     final HashMap<String, BackupAgent> mBackupAgents = new HashMap<String, BackupAgent>();
-    static final ThreadLocal<ActivityThread> sThreadLocal = new ThreadLocal<ActivityThread>();
+    /** Reference to singleton {@link ActivityThread} */
+    private static ActivityThread sCurrentActivityThread;
     Instrumentation mInstrumentation;
     String mInstrumentationAppDir = null;
     String mInstrumentationAppLibraryDir = null;
@@ -232,6 +235,8 @@ public final class ActivityThread {
     final ArrayList<ActivityClientRecord> mRelaunchingActivities
             = new ArrayList<ActivityClientRecord>();
     Configuration mPendingConfiguration = null;
+
+    private String mHwuiForbidden;
 
     private static final class ProviderKey {
         final String authority;
@@ -435,6 +440,7 @@ public final class ActivityThread {
         ComponentName instrumentationName;
         Bundle instrumentationArgs;
         IInstrumentationWatcher instrumentationWatcher;
+        IUiAutomationConnection instrumentationUiAutomationConnection;
         int debugMode;
         boolean enableOpenGlTrace;
         boolean restrictedBackupMode;
@@ -548,7 +554,13 @@ public final class ActivityThread {
         String pkg;
         CompatibilityInfo info;
     }
-    
+
+    static final class RequestActivityExtras {
+        IBinder activityToken;
+        IBinder requestToken;
+        int requestType;
+    }
+
     private native void dumpGraphicsInfo(FileDescriptor fd);
 
     private class ApplicationThread extends ApplicationThreadNative {
@@ -739,9 +751,10 @@ public final class ActivityThread {
                 ComponentName instrumentationName, String profileFile,
                 ParcelFileDescriptor profileFd, boolean autoStopProfiler,
                 Bundle instrumentationArgs, IInstrumentationWatcher instrumentationWatcher,
-                int debugMode, boolean enableOpenGlTrace, boolean isRestrictedBackupMode,
-                boolean persistent, Configuration config, CompatibilityInfo compatInfo,
-                Map<String, IBinder> services, Bundle coreSettings) {
+                IUiAutomationConnection instrumentationUiConnection, int debugMode,
+                boolean enableOpenGlTrace, boolean isRestrictedBackupMode, boolean persistent,
+                Configuration config, CompatibilityInfo compatInfo, Map<String, IBinder> services,
+                Bundle coreSettings) {
 
             if (services != null) {
                 // Setup the service cache in the ServiceManager
@@ -757,6 +770,7 @@ public final class ActivityThread {
             data.instrumentationName = instrumentationName;
             data.instrumentationArgs = instrumentationArgs;
             data.instrumentationWatcher = instrumentationWatcher;
+            data.instrumentationUiAutomationConnection = instrumentationUiConnection;
             data.debugMode = debugMode;
             data.enableOpenGlTrace = enableOpenGlTrace;
             data.restrictedBackupMode = isRestrictedBackupMode;
@@ -1123,6 +1137,16 @@ public final class ActivityThread {
             queueOrSendMessage(H.UNSTABLE_PROVIDER_DIED, provider);
         }
 
+        @Override
+        public void requestActivityExtras(IBinder activityToken, IBinder requestToken,
+                int requestType) {
+            RequestActivityExtras cmd = new RequestActivityExtras();
+            cmd.activityToken = activityToken;
+            cmd.requestToken = requestToken;
+            cmd.requestType = requestType;
+            queueOrSendMessage(H.REQUEST_ACTIVITY_EXTRAS, cmd);
+        }
+
         private void printRow(PrintWriter pw, String format, Object...objs) {
             pw.println(String.format(format, objs));
         }
@@ -1188,6 +1212,7 @@ public final class ActivityThread {
         public static final int TRIM_MEMORY             = 140;
         public static final int DUMP_PROVIDER           = 141;
         public static final int UNSTABLE_PROVIDER_DIED  = 142;
+        public static final int REQUEST_ACTIVITY_EXTRAS = 143;
         String codeToString(int code) {
             if (DEBUG_MESSAGES) {
                 switch (code) {
@@ -1234,6 +1259,7 @@ public final class ActivityThread {
                     case TRIM_MEMORY: return "TRIM_MEMORY";
                     case DUMP_PROVIDER: return "DUMP_PROVIDER";
                     case UNSTABLE_PROVIDER_DIED: return "UNSTABLE_PROVIDER_DIED";
+                    case REQUEST_ACTIVITY_EXTRAS: return "REQUEST_ACTIVITY_EXTRAS";
                 }
             }
             return Integer.toString(code);
@@ -1445,6 +1471,9 @@ public final class ActivityThread {
                 case UNSTABLE_PROVIDER_DIED:
                     handleUnstableProviderDied((IBinder)msg.obj, false);
                     break;
+                case REQUEST_ACTIVITY_EXTRAS:
+                    handleRequestActivityExtras((RequestActivityExtras)msg.obj);
+                    break;
             }
             if (DEBUG_MESSAGES) Slog.v(TAG, "<<< done: " + codeToString(msg.what));
         }
@@ -1583,10 +1612,16 @@ public final class ActivityThread {
     }
 
     public static ActivityThread currentActivityThread() {
-        return sThreadLocal.get();
+        return sCurrentActivityThread;
     }
 
     public static String currentPackageName() {
+        ActivityThread am = currentActivityThread();
+        return (am != null && am.mBoundApplication != null)
+            ? am.mBoundApplication.appInfo.packageName : null;
+    }
+
+    public static String currentProcessName() {
         ActivityThread am = currentActivityThread();
         return (am != null && am.mBoundApplication != null)
             ? am.mBoundApplication.processName : null;
@@ -1765,7 +1800,7 @@ public final class ActivityThread {
                 r.getAssets().close();
                 return existing;
             }
-            
+
             // XXX need to remove entries when weak references go away
             mActiveResources.put(key, new WeakReference<Resources>(r));
             return r;
@@ -1801,7 +1836,8 @@ public final class ActivityThread {
         }
         PackageInfo pi = null;
         try {
-            pi = getPackageManager().getPackageInfo(theme.getThemePackageName(), 0, 0);
+            pi = getPackageManager().getPackageInfo(theme.getThemePackageName(),
+                    0, UserHandle.myUserId());
         } catch (RemoteException e) {
         }
         if (pi != null && pi.applicationInfo != null && pi.themeInfos != null) {
@@ -2057,7 +2093,7 @@ public final class ActivityThread {
             dalvik.system.VMRuntime.getRuntime().startJitCompilation();
         }
     }
-    
+
     void scheduleGcIdler() {
         if (!mGcIdlerScheduled) {
             mGcIdlerScheduled = true;
@@ -2147,6 +2183,17 @@ public final class ActivityThread {
 
     public final Activity getActivity(IBinder token) {
         return mActivities.get(token).activity;
+    }
+
+    protected void performFinishFloating() {
+        synchronized (mPackages) {
+            for (ActivityClientRecord ar : mActivities.values()) {
+                Activity a = ar.activity;
+                if (a != null && !a.mFinished && a.getWindow() != null && a.getWindow().mIsFloatingWindow) {
+                    a.finish();
+                }
+            }
+        }
     }
 
     public final void sendActivityResult(
@@ -2451,6 +2498,23 @@ public final class ActivityThread {
 
     private void handleNewIntent(NewIntentData data) {
         performNewIntents(data.token, data.intents);
+    }
+
+    public void handleRequestActivityExtras(RequestActivityExtras cmd) {
+        Bundle data = new Bundle();
+        ActivityClientRecord r = mActivities.get(cmd.activityToken);
+        if (r != null) {
+            r.activity.getApplication().dispatchOnProvideAssistData(r.activity, data);
+            r.activity.onProvideAssistData(data);
+        }
+        if (data.isEmpty()) {
+            data = null;
+        }
+        IActivityManager mgr = ActivityManagerNative.getDefault();
+        try {
+            mgr.reportTopActivityExtras(cmd.requestToken, data);
+        } catch (RemoteException e) {
+        }
     }
 
     private static final ThreadLocal<Intent> sCurrentBroadcastIntent = new ThreadLocal<Intent>();
@@ -2871,12 +2935,7 @@ public final class ActivityThread {
                 r.stopped = false;
                 r.state = null;
             } catch (Exception e) {
-                if (!mInstrumentation.onException(r.activity, e)) {
-                    throw new RuntimeException(
-                        "Unable to resume activity "
-                        + r.intent.getComponent().toShortString()
-                        + ": " + e.toString(), e);
-                }
+                // Unable to resume activity
             }
         }
         return r;
@@ -3047,7 +3106,7 @@ public final class ActivityThread {
                 if (cv == null) {
                     mThumbnailCanvas = cv = new Canvas();
                 }
-    
+
                 cv.setBitmap(thumbnail);
                 if (!r.activity.onCreateThumbnail(thumbnail, cv)) {
                     mAvailThumbnailBitmap = thumbnail;
@@ -3352,7 +3411,7 @@ public final class ActivityThread {
 
     private void handleWindowVisibility(IBinder token, boolean show) {
         ActivityClientRecord r = mActivities.get(token);
-        
+
         if (r == null) {
             Log.w(TAG, "handleWindowVisibility: no activity for token " + token);
             return;
@@ -3767,10 +3826,10 @@ public final class ActivityThread {
                 }
             }
         }
-        
+
         if (DEBUG_CONFIGURATION) Slog.v(TAG, "Relaunching activity "
                 + tmp.token + ": changedConfig=" + changedConfig);
-        
+
         // If there was a pending configuration change, execute it first.
         if (changedConfig != null) {
             mCurDefaultDisplayDpi = changedConfig.densityDpi;
@@ -4034,7 +4093,7 @@ public final class ActivityThread {
                 it.remove();
             }
         }
-        
+
         return changes;
     }
 
@@ -4092,12 +4151,12 @@ public final class ActivityThread {
             if (config == null) {
                 return;
             }
-            
+
             if (DEBUG_CONFIGURATION) Slog.v(TAG, "Handle configuration changed: "
                     + config);
-        
+
             diff = applyConfigurationToResourcesLocked(config, compat);
-            
+
             if (mConfiguration == null) {
                 mConfiguration = new Configuration();
             }
@@ -4156,7 +4215,7 @@ public final class ActivityThread {
 
         if (DEBUG_CONFIGURATION) Slog.v(TAG, "Handle activity config changed: "
                 + r.activityInfo.name);
-        
+
         performConfigurationChanged(r.activity, mCompatConfiguration);
 
         freeTextLayoutCachesIfNeeded(r.activity.mCurrentConfig.diff(mCompatConfiguration));
@@ -4166,7 +4225,7 @@ public final class ActivityThread {
         if (start) {
             try {
                 switch (profileType) {
-                    default:                        
+                    default:
                         mProfiler.setProfiler(pcd.path, pcd.fd);
                         mProfiler.autoStopProfiler = false;
                         mProfiler.startProfiling();
@@ -4234,7 +4293,7 @@ public final class ActivityThread {
         ApplicationPackageManager.handlePackageBroadcast(cmd, packages,
                 hasPkgInfo);
     }
-        
+
     final void handleLowMemory() {
         ArrayList<ComponentCallbacks2> callbacks = collectComponentCallbacks(true, null);
 
@@ -4284,7 +4343,7 @@ public final class ActivityThread {
             String[] packages = getPackageManager().getPackagesForUid(uid);
 
             // If there are several packages in this application we won't
-            // initialize the graphics disk caches 
+            // initialize the graphics disk caches
             if (packages != null && packages.length == 1) {
                 HardwareRenderer.setupDiskCache(cacheDir);
                 RenderScript.setupDiskCache(cacheDir);
@@ -4304,6 +4363,17 @@ public final class ActivityThread {
             DisplayMetrics.DENSITY_DEVICE = mCurDefaultDisplayDpi;
             Bitmap.setDefaultDensity(DisplayMetrics.DENSITY_DEFAULT);
         }
+    }
+
+    private boolean isHwuiDisabled(int pid) {
+        try {
+            if (ActivityManagerNative.getDefault().isHwuiDisabledForProcess(pid)) {
+                Slog.i(TAG, "HWUI is disabled for process pid=" + pid);
+                return true;
+            }
+        } catch (RemoteException e) {
+        }
+        return false;
     }
 
     private void handleBindApplication(AppBindData data) {
@@ -4360,8 +4430,10 @@ public final class ActivityThread {
             if (!ActivityManager.isHighEndGfx()) {
                 HardwareRenderer.disable(false);
             }
+        } else if (isHwuiDisabled(Binder.getCallingPid())) {
+            HardwareRenderer.disable(false);
         }
-        
+
         if (mProfiler.profileFd != null) {
             mProfiler.startProfiling();
         }
@@ -4416,7 +4488,7 @@ public final class ActivityThread {
             if (cacheDir != null) {
                 // Provide a usable directory for temporary files
                 System.setProperty("java.io.tmpdir", cacheDir.getAbsolutePath());
-    
+
                 setupGraphicsSupport(data.info, cacheDir);
             } else {
                 Log.e(TAG, "Unable to setupGraphicsSupport due to missing cache directory");
@@ -4471,8 +4543,12 @@ public final class ActivityThread {
 
         // Enable OpenGL tracing if required
         if (data.enableOpenGlTrace) {
-            GLUtils.enableTracing();
+            GLUtils.setTracingLevel(1);
         }
+
+        // Allow application-generated systrace messages if we're debuggable.
+        boolean appTracingAllowed = (data.appInfo.flags&ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        Trace.setAppTracingAllowed(appTracingAllowed);
 
         /**
          * Initialize the default http proxy in this process for the reasons we set the time zone.
@@ -4530,7 +4606,8 @@ public final class ActivityThread {
             }
 
             mInstrumentation.init(this, instrContext, appContext,
-                    new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher);
+                   new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
+                   data.instrumentationUiAutomationConnection);
 
             if (mProfiler.profileFile != null && !ii.handleProfiling
                     && mProfiler.profileFd == null) {
@@ -4686,6 +4763,8 @@ public final class ActivityThread {
                                 + "snatched provider from the jaws of death");
                     }
                     prc.removePending = false;
+                    // There is a race! It fails to remove the message, which
+                    // will be handled in completeRemoveProvider().
                     mH.removeMessages(H.REMOVE_PROVIDER, prc);
                 } else {
                     unstableDelta = 0;
@@ -4864,6 +4943,11 @@ public final class ActivityThread {
                         + "provider still in use");
                 return;
             }
+
+            // More complicated race!! Some client managed to acquire the
+            // provider and release it before the removal was completed.
+            // Continue the removal, and abort the next remove message.
+            prc.removePending = false;
 
             final IBinder jBinder = prc.holder.provider.asBinder();
             ProviderRefCount existingPrc = mProviderRefCountMap.get(jBinder);
@@ -5088,7 +5172,7 @@ public final class ActivityThread {
     }
 
     private void attach(boolean system) {
-        sThreadLocal.set(this);
+        sCurrentActivityThread = this;
         mSystemThread = system;
         if (!system) {
             ViewRootImpl.addFirstDrawHandler(new Runnable() {
@@ -5139,7 +5223,7 @@ public final class ActivityThread {
                         if (mPendingConfiguration == null ||
                                 mPendingConfiguration.isOtherSeqNewer(newConfig)) {
                             mPendingConfiguration = newConfig;
-                            
+
                             queueOrSendMessage(H.CONFIGURATION_CHANGED, newConfig);
                         }
                     }
@@ -5214,6 +5298,8 @@ public final class ActivityThread {
 
         // Set the reporter for event logging in libcore
         EventLogger.setReporter(new EventLoggingReporter());
+
+        Security.addProvider(new AndroidKeyStoreProvider());
 
         Process.setArgV0("<pre-initialized>");
 

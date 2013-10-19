@@ -3,8 +3,8 @@ package com.android.internal.util.cm;
 import android.bluetooth.BluetoothAdapter;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.hardware.Camera;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.WifiDisplayStatus;
 import android.net.ConnectivityManager;
@@ -30,15 +30,15 @@ public class QSUtils {
             return (dm.getWifiDisplayStatus().getFeatureState() != WifiDisplayStatus.FEATURE_STATE_UNAVAILABLE);
         }
 
-        public static boolean deviceSupportsTelephony(Context ctx) {
-            PackageManager pm = ctx.getPackageManager();
-            return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+        public static boolean deviceSupportsMobileData(Context ctx) {
+            ConnectivityManager cm = (ConnectivityManager) ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
+            return cm.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);
         }
 
         public static boolean deviceSupportsBluetooth() {
             return (BluetoothAdapter.getDefaultAdapter() != null);
         }
-        
+
         public static boolean systemProfilesEnabled(ContentResolver resolver) {
             return (Settings.System.getInt(resolver, Settings.System.SYSTEM_PROFILES_ENABLED, 1) == 1);
         }
@@ -50,5 +50,18 @@ public class QSUtils {
         public static boolean deviceSupportsLte(Context ctx) {
             final TelephonyManager tm = (TelephonyManager) ctx.getSystemService(Context.TELEPHONY_SERVICE);
             return (tm.getLteOnCdmaMode() == PhoneConstants.LTE_ON_CDMA_TRUE) || tm.getLteOnGsmMode() != 0;
+        }
+
+        public static boolean deviceSupportsDockBattery(Context ctx) {
+            Resources res = ctx.getResources();
+            return res.getBoolean(com.android.internal.R.bool.config_hasDockBattery);
+        }
+
+        public static boolean deviceSupportsCamera() {
+            return Camera.getNumberOfCameras() > 0;
+        }
+
+        public static boolean adbEnabled(ContentResolver resolver) {
+            return (Settings.Global.getInt(resolver, Settings.Global.ADB_ENABLED, 0)) == 1;
         }
 }

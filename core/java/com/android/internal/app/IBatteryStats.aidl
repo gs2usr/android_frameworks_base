@@ -25,7 +25,7 @@ interface IBatteryStats {
     byte[] getStatistics();
     void noteStartWakelock(int uid, int pid, String name, int type);
     void noteStopWakelock(int uid, int pid, String name, int type);
-    
+
     /* DO NOT CHANGE the position of noteStartSensor without updating
        SensorService.cpp */
     void noteStartSensor(int uid, int sensor);
@@ -37,6 +37,8 @@ interface IBatteryStats {
     void noteStartWakelockFromSource(in WorkSource ws, int pid, String name, int type);
     void noteStopWakelockFromSource(in WorkSource ws, int pid, String name, int type);
 
+    void noteVibratorOn(int uid, long durationMillis);
+    void noteVibratorOff(int uid);
     void noteStartGps(int uid);
     void noteStopGps(int uid);
     void noteScreenOn();

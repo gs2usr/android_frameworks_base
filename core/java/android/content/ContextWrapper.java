@@ -56,12 +56,12 @@ public class ContextWrapper extends Context {
     public ContextWrapper(Context base) {
         mBase = base;
     }
-    
+
     /**
      * Set the base context for this ContextWrapper.  All calls will then be
      * delegated to the base context.  Throws
      * IllegalStateException if a base context has already been set.
-     * 
+     *
      * @param base The new base context for this wrapper.
      */
     protected void attachBaseContext(Context base) {
@@ -103,12 +103,12 @@ public class ContextWrapper extends Context {
     public Looper getMainLooper() {
         return mBase.getMainLooper();
     }
-    
+
     @Override
     public Context getApplicationContext() {
         return mBase.getApplicationContext();
     }
-    
+
     @Override
     public void setTheme(int resid) {
         mBase.setTheme(resid);
@@ -135,11 +135,17 @@ public class ContextWrapper extends Context {
         return mBase.getPackageName();
     }
 
+    /** @hide */
+    @Override
+    public String getBasePackageName() {
+        return mBase.getBasePackageName();
+    }
+
     @Override
     public ApplicationInfo getApplicationInfo() {
         return mBase.getApplicationInfo();
     }
-    
+
     @Override
     public String getPackageResourcePath() {
         return mBase.getPackageResourcePath();
@@ -192,17 +198,17 @@ public class ContextWrapper extends Context {
     public File getFilesDir() {
         return mBase.getFilesDir();
     }
-    
+
     @Override
     public File getExternalFilesDir(String type) {
         return mBase.getExternalFilesDir(type);
     }
-    
+
     @Override
     public File getObbDir() {
         return mBase.getObbDir();
     }
-    
+
     @Override
     public File getCacheDir() {
         return mBase.getCacheDir();
@@ -332,7 +338,7 @@ public class ContextWrapper extends Context {
         mBase.startIntentSender(intent, fillInIntent, flagsMask,
                 flagsValues, extraFlags, options);
     }
-    
+
     @Override
     public void sendBroadcast(Intent intent) {
         mBase.sendBroadcast(intent);
@@ -341,6 +347,12 @@ public class ContextWrapper extends Context {
     @Override
     public void sendBroadcast(Intent intent, String receiverPermission) {
         mBase.sendBroadcast(intent, receiverPermission);
+    }
+
+    /** @hide */
+    @Override
+    public void sendBroadcast(Intent intent, String receiverPermission, int appOp) {
+        mBase.sendBroadcast(intent, receiverPermission, appOp);
     }
 
     @Override
@@ -355,6 +367,17 @@ public class ContextWrapper extends Context {
         Handler scheduler, int initialCode, String initialData,
         Bundle initialExtras) {
         mBase.sendOrderedBroadcast(intent, receiverPermission,
+                resultReceiver, scheduler, initialCode,
+                initialData, initialExtras);
+    }
+
+    /** @hide */
+    @Override
+    public void sendOrderedBroadcast(
+        Intent intent, String receiverPermission, int appOp, BroadcastReceiver resultReceiver,
+        Handler scheduler, int initialCode, String initialData,
+        Bundle initialExtras) {
+        mBase.sendOrderedBroadcast(intent, receiverPermission, appOp,
                 resultReceiver, scheduler, initialCode,
                 initialData, initialExtras);
     }
@@ -475,8 +498,9 @@ public class ContextWrapper extends Context {
 
     /** @hide */
     @Override
-    public boolean bindService(Intent service, ServiceConnection conn, int flags, int userHandle) {
-        return mBase.bindService(service, conn, flags, userHandle);
+    public boolean bindServiceAsUser(Intent service, ServiceConnection conn, int flags,
+            UserHandle user) {
+        return mBase.bindServiceAsUser(service, conn, flags, user);
     }
 
     @Override
@@ -493,6 +517,12 @@ public class ContextWrapper extends Context {
     @Override
     public Object getSystemService(String name) {
         return mBase.getSystemService(name);
+    }
+
+    /** @hide */
+    @Override
+    public boolean isHwuiDisabled() {
+        return mBase.isHwuiDisabled();
     }
 
     @Override
@@ -597,6 +627,12 @@ public class ContextWrapper extends Context {
     public Context createPackageContextAsUser(String packageName, int flags, UserHandle user)
             throws PackageManager.NameNotFoundException {
         return mBase.createPackageContextAsUser(packageName, flags, user);
+    }
+
+    /** @hide */
+    @Override
+    public int getUserId() {
+        return mBase.getUserId();
     }
 
     @Override

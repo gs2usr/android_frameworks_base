@@ -51,7 +51,7 @@ public class ClipDrawable extends Drawable implements Drawable.Callback {
 
     public static final int HORIZONTAL = 1;
     public static final int VERTICAL = 2;
-    
+
     ClipDrawable() {
         this(null, null);
     }
@@ -191,7 +191,7 @@ public class ClipDrawable extends Drawable implements Drawable.Callback {
 
     @Override
     public void draw(Canvas canvas) {
-        
+
         if (mClipState.mDrawable.getLevel() == 0) {
             return;
         }
@@ -263,6 +263,7 @@ public class ClipDrawable extends Drawable implements Drawable.Callback {
                     mDrawable = orig.mDrawable.getConstantState().newDrawable();
                 }
                 mDrawable.setCallback(owner);
+                mDrawable.setLayoutDirection(orig.mDrawable.getLayoutDirection());
                 mOrientation = orig.mOrientation;
                 mGravity = orig.mGravity;
                 mCheckedConstantState = mCanConstantState = true;

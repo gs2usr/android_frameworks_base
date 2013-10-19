@@ -17,6 +17,7 @@
 package android.view;
 
 import android.app.AppGlobals;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -222,6 +223,7 @@ public class ViewConfiguration {
 
     private boolean sHasPermanentMenuKey;
     private boolean sHasPermanentMenuKeySet;
+
     private Context mContext;
 
     static final SparseArray<ViewConfiguration> sConfigurations =
@@ -272,6 +274,7 @@ public class ViewConfiguration {
         }
 
         mContext = context;
+
         mEdgeSlop = (int) (sizeAndDensity * EDGE_SLOP + 0.5f);
         mFadingEdgeLength = (int) (sizeAndDensity * FADING_EDGE_LENGTH + 0.5f);
         mMinimumFlingVelocity = (int) (density * MINIMUM_FLING_VELOCITY + 0.5f);
@@ -685,10 +688,8 @@ public class ViewConfiguration {
         boolean showOverflowButton = Settings.System.getBoolean(
                 mContext.getContentResolver(),
                 Settings.System.UI_FORCE_OVERFLOW_BUTTON, false);
-        if (showOverflowButton) {
-            // Force overflow button on by reporting that
-            // the device has no permanent menu key
-            return false;
+        if (!showOverflowButton) {
+            return true;
         } else {
             return sHasPermanentMenuKey;
         }

@@ -55,7 +55,7 @@ import java.util.Locale;
  * <p>
  * Functions like show() and hide() have no effect when MediaController
  * is created in an xml layout.
- * 
+ *
  * MediaController will hide and
  * show the buttons according to these rules:
  * <ul>
@@ -132,7 +132,7 @@ public class MediaController extends FrameLayout {
         mDecor.setOnTouchListener(mTouchListener);
         mWindow.setContentView(this);
         mWindow.setBackgroundDrawableResource(android.R.color.transparent);
-        
+
         // While the media controller is up, the volume control keys should
         // affect the media stream type
         mWindow.setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -149,7 +149,7 @@ public class MediaController extends FrameLayout {
     private void initFloatingWindowLayout() {
         mDecorLayoutParams = new WindowManager.LayoutParams();
         WindowManager.LayoutParams p = mDecorLayoutParams;
-        p.gravity = Gravity.TOP;
+        p.gravity = Gravity.TOP | Gravity.LEFT;
         p.height = LayoutParams.WRAP_CONTENT;
         p.x = 0;
         p.format = PixelFormat.TRANSLUCENT;
@@ -167,9 +167,15 @@ public class MediaController extends FrameLayout {
         int [] anchorPos = new int[2];
         mAnchor.getLocationOnScreen(anchorPos);
 
+        // we need to know the size of the controller so we can properly position it
+        // within its space
+        mDecor.measure(MeasureSpec.makeMeasureSpec(mAnchor.getWidth(), MeasureSpec.AT_MOST),
+                MeasureSpec.makeMeasureSpec(mAnchor.getHeight(), MeasureSpec.AT_MOST));
+
         WindowManager.LayoutParams p = mDecorLayoutParams;
         p.width = mAnchor.getWidth();
-        p.y = anchorPos[1] + mAnchor.getHeight();
+        p.x = anchorPos[0] + (mAnchor.getWidth() - p.width) / 2;
+        p.y = anchorPos[1] + mAnchor.getHeight() - mDecor.getMeasuredHeight();
     }
 
     // This is called whenever mAnchor's layout bound changes
@@ -195,7 +201,7 @@ public class MediaController extends FrameLayout {
             return false;
         }
     };
-    
+
     public void setMediaPlayer(MediaPlayerControl player) {
         mPlayer = player;
         updatePausePlay();
@@ -204,6 +210,8 @@ public class MediaController extends FrameLayout {
     /**
      * Set the view that acts as the anchor for the control view.
      * This can for example be a VideoView, or your Activity's main view.
+     * When VideoView calls this method, it will use the VideoView's parent
+     * as the anchor.
      * @param view The view to which to anchor the controller when it is visible.
      */
     public void setAnchorView(View view) {
@@ -263,7 +271,7 @@ public class MediaController extends FrameLayout {
             }
         }
 
-        // By default these are hidden. They will be enabled when setPrevNextListeners() is called 
+        // By default these are hidden. They will be enabled when setPrevNextListeners() is called
         mNextButton = (ImageButton) v.findViewById(com.android.internal.R.id.next);
         if (mNextButton != null && !mFromXml && !mListenersSet) {
             mNextButton.setVisibility(View.GONE);
@@ -320,7 +328,7 @@ public class MediaController extends FrameLayout {
             // the buttons.
         }
     }
-    
+
     /**
      * Show the controller on screen. It will go away
      * automatically after 'timeout' milliseconds of inactivity.
@@ -339,7 +347,7 @@ public class MediaController extends FrameLayout {
             mShowing = true;
         }
         updatePausePlay();
-        
+
         // cause the progress bar to be updated even if mShowing
         // was already true.  This happens, for example, if we're
         // paused with the progress bar showing the user hits play.
@@ -351,7 +359,7 @@ public class MediaController extends FrameLayout {
             mHandler.sendMessageDelayed(msg, timeout);
         }
     }
-    
+
     public boolean isShowing() {
         return mShowing;
     }
@@ -648,7 +656,7 @@ public class MediaController extends FrameLayout {
 
         if (mRoot != null) {
             installPrevNextListeners();
-            
+
             if (mNextButton != null && !mFromXml) {
                 mNextButton.setVisibility(View.VISIBLE);
             }
@@ -669,5 +677,12 @@ public class MediaController extends FrameLayout {
         boolean canPause();
         boolean canSeekBackward();
         boolean canSeekForward();
+
+        /**
+         * Get the audio session id for the player used by this VideoView. This can be used to
+         * apply audio effects to the audio track of a video.
+         * @return The audio session, or 0 if there was an error.
+         */
+        int     getAudioSessionId();
     }
 }

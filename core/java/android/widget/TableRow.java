@@ -120,7 +120,7 @@ public class TableRow extends LinearLayout {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         // enforce horizontal layout
-        layoutHorizontal();
+        layoutHorizontal(l, t, r, b);
     }
 
     /**
@@ -395,7 +395,7 @@ public class TableRow extends LinearLayout {
      * <p>Set of layout parameters used in table rows.</p>
      *
      * @see android.widget.TableLayout.LayoutParams
-     * 
+     *
      * @attr ref android.R.styleable#TableRow_Cell_layout_column
      * @attr ref android.R.styleable#TableRow_Cell_layout_span
      */

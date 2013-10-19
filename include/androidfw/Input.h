@@ -36,6 +36,9 @@ class SkMatrix;
  * Additional private constants not defined in ndk/ui/input.h.
  */
 enum {
+    /* Signifies that the key is being predispatched */
+    AKEY_EVENT_FLAG_PREDISPATCH = 0x20000000,
+
     /* Private control to determine when an app is tracking a key sequence. */
     AKEY_EVENT_FLAG_START_TRACKING = 0x40000000,
 
@@ -290,7 +293,7 @@ public:
     // Return true if this event represents a system key.
     static bool isSystemKey(int32_t keyCode);
     bool isSystemKey() const;
-    
+
     void initialize(
             int32_t deviceId,
             int32_t source,

@@ -36,7 +36,7 @@ abstract class GLES20Layer extends HardwareLayer {
 
     /**
      * Returns the native layer object used to render this layer.
-     * 
+     *
      * @return A pointer to the native layer object, or 0 if the object is NULL
      */
     public int getLayer() {
@@ -53,12 +53,12 @@ abstract class GLES20Layer extends HardwareLayer {
     }
 
     @Override
-    boolean copyInto(Bitmap bitmap) {
+    public boolean copyInto(Bitmap bitmap) {
         return GLES20Canvas.nCopyLayer(mLayer, bitmap.mNativeBitmap);
     }
 
     @Override
-    void destroy() {
+    public void destroy() {
         if (mFinalizer != null) {
             mFinalizer.destroy();
             mFinalizer = null;

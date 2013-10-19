@@ -63,11 +63,24 @@ oneway interface IAccountAuthenticator {
      * returns a Bundle where the boolean value BOOLEAN_RESULT_KEY is set if the account has the
      * specified features
      */
-    void hasFeatures(in IAccountAuthenticatorResponse response, in Account account, 
+    void hasFeatures(in IAccountAuthenticatorResponse response, in Account account,
         in String[] features);
 
     /**
      * Gets whether or not the account is allowed to be removed.
      */
     void getAccountRemovalAllowed(in IAccountAuthenticatorResponse response, in Account account);
+
+    /**
+     * Returns a Bundle containing the required credentials to copy the account across users.
+     */
+    void getAccountCredentialsForCloning(in IAccountAuthenticatorResponse response,
+            in Account account);
+
+    /**
+     * Uses the Bundle containing credentials from another instance of the authenticator to create
+     * a copy of the account on this user.
+     */
+    void addAccountFromCredentials(in IAccountAuthenticatorResponse response, in Account account,
+            in Bundle accountCredentials);
 }

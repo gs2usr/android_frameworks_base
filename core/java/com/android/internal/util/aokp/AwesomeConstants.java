@@ -39,7 +39,6 @@ public class AwesomeConstants {
      * For clarity, **null** should probably also be just before APP.  New actions
      * should be added prior to **null**
      */
-
     public static enum AwesomeConstant {
         ACTION_HOME          { @Override public String value() { return "**home**";}},
         ACTION_BACK          { @Override public String value() { return "**back**";}},
@@ -66,6 +65,7 @@ public class AwesomeConstants {
         ACTION_ALARM         { @Override public String value() { return "**alarm**";}},
         ACTION_UNLOCK        { @Override public String value() { return "**unlock**";}},
         ACTION_CAMERA        { @Override public String value() { return "**camera**";}},
+        ACTION_UPDATE        { @Override public String value() { return "**update**";}},
         ACTION_NULL          { @Override public String value() { return "**null**";}},
         ACTION_APP           { @Override public String value() { return "**app**";}};
         public String value() { return this.value(); }

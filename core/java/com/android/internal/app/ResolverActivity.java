@@ -30,6 +30,7 @@ import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -39,6 +40,7 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -107,8 +109,8 @@ public class ResolverActivity extends AlertActivity implements AdapterView.OnIte
     protected void onCreate(Bundle savedInstanceState, Intent intent,
             CharSequence title, Intent[] initialIntents, List<ResolveInfo> rList,
             boolean alwaysUseOption) {
-        if (Settings.Secure.getInt(getContentResolver(),
-                Settings.Secure.UI_INVERTED_MODE, 0) == 1) {
+        if (getResources().getConfiguration().uiInvertedMode
+                == Configuration.UI_INVERTED_MODE_YES) {
             setTheme(R.style.Theme_DeviceDefault_Dialog_Alert);
         } else {
             setTheme(R.style.Theme_DeviceDefault_Light_Dialog_Alert);
@@ -588,7 +590,7 @@ public class ResolverActivity extends AlertActivity implements AdapterView.OnIte
 
         public Intent intentForPosition(int position) {
             DisplayResolveInfo dri = mList.get(position);
-            
+
             Intent intent = new Intent(dri.origIntent != null
                     ? dri.origIntent : mIntent);
             intent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT
@@ -635,7 +637,8 @@ public class ResolverActivity extends AlertActivity implements AdapterView.OnIte
             text.setText(info.displayLabel);
             if (mShowExtended) {
                 text2.setVisibility(View.VISIBLE);
-                text2.setText(info.extendedInfo);
+                text2.setText(TextUtils.isEmpty(info.extendedInfo)
+                        ? null : "(" + info.extendedInfo + ")");
             } else {
                 text2.setVisibility(View.GONE);
             }

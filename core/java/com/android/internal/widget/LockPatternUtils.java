@@ -139,14 +139,14 @@ public class LockPatternUtils {
      */
     public static final int ID_DEFAULT_STATUS_WIDGET = -2;
 
-    protected final static String LOCKOUT_PERMANENT_KEY = "lockscreen.lockedoutpermanently";
-    protected final static String LOCKOUT_ATTEMPT_DEADLINE = "lockscreen.lockoutattemptdeadline";
-    protected final static String PATTERN_EVER_CHOSEN_KEY = "lockscreen.patterneverchosen";
+    public final static String LOCKOUT_PERMANENT_KEY = "lockscreen.lockedoutpermanently";
+    public final static String LOCKOUT_ATTEMPT_DEADLINE = "lockscreen.lockoutattemptdeadline";
+    public final static String PATTERN_EVER_CHOSEN_KEY = "lockscreen.patterneverchosen";
     public final static String PASSWORD_TYPE_KEY = "lockscreen.password_type";
     public static final String PASSWORD_TYPE_ALTERNATE_KEY = "lockscreen.password_type_alternate";
-    protected final static String LOCK_PASSWORD_SALT_KEY = "lockscreen.password_salt";
-    protected final static String DISABLE_LOCKSCREEN_KEY = "lockscreen.disabled";
-    protected final static String LOCKSCREEN_OPTIONS = "lockscreen.options";
+    public final static String LOCK_PASSWORD_SALT_KEY = "lockscreen.password_salt";
+    public final static String DISABLE_LOCKSCREEN_KEY = "lockscreen.disabled";
+    public final static String LOCKSCREEN_OPTIONS = "lockscreen.options";
     public final static String LOCKSCREEN_BIOMETRIC_WEAK_FALLBACK
             = "lockscreen.biometric_weak_fallback";
     public final static String BIOMETRIC_WEAK_EVER_CHOSEN_KEY
@@ -154,7 +154,11 @@ public class LockPatternUtils {
     public final static String LOCKSCREEN_POWER_BUTTON_INSTANTLY_LOCKS
             = "lockscreen.power_button_instantly_locks";
 
-    protected final static String PASSWORD_HISTORY_KEY = "lockscreen.passwordhistory";
+    public final static String PASSWORD_HISTORY_KEY = "lockscreen.passwordhistory";
+
+    private static final String LOCK_SCREEN_OWNER_INFO = Settings.Secure.LOCK_SCREEN_OWNER_INFO;
+    private static final String LOCK_SCREEN_OWNER_INFO_ENABLED =
+            Settings.Secure.LOCK_SCREEN_OWNER_INFO_ENABLED;
 
     private final Context mContext;
     private final ContentResolver mContentResolver;
@@ -544,6 +548,22 @@ public class LockPatternUtils {
         }
     }
 
+    public void setOwnerInfo(String info, int userId) {
+        setString(LOCK_SCREEN_OWNER_INFO, info, userId);
+    }
+
+    public void setOwnerInfoEnabled(boolean enabled) {
+        setBoolean(LOCK_SCREEN_OWNER_INFO_ENABLED, enabled);
+    }
+
+    public String getOwnerInfo(int userId) {
+        return getString(LOCK_SCREEN_OWNER_INFO);
+    }
+
+    public boolean isOwnerInfoEnabled() {
+        return getBoolean(LOCK_SCREEN_OWNER_INFO_ENABLED, false);
+    }
+
     /**
      * Compute the password quality from the given password string.
      */
@@ -634,8 +654,13 @@ public class LockPatternUtils {
             KeyStore keyStore = KeyStore.getInstance();
             if (password != null) {
                 if (userHandle == UserHandle.USER_OWNER) {
-                    // Update the encryption password.
-                    updateEncryptionPassword(password);
+                    // Sync encryption password if enabled
+                    if (getSyncEncryptionPassword()) {
+                        Log.d(TAG, "Syncing encryption password");
+                        updateEncryptionPassword(password);
+                    } else {
+                        Log.d(TAG, "Skipping encryption password sync");
+                    }
 
                     // Update the keystore password
                     keyStore.password(password);
@@ -1398,4 +1423,21 @@ public class LockPatternUtils {
         setBoolean(Settings.Secure.LOCK_BEFORE_UNLOCK, enabled);
     }
 
+    /**
+     * @hide
+     * Set the lock-sync-encryption-password option (whether to sync encryption
+     * password with lock screen token).
+     */
+    public void setSyncEncryptionPassword(boolean enabled) {
+        setBoolean(Settings.Secure.LOCK_SYNC_ENCRYPTION_PASSWORD, enabled);
+    }
+
+    /**
+     * @hide
+     * Get the lock-sync-encryption-password option (whether to sync encryption
+     * password with lock screen token).
+     */
+    public boolean getSyncEncryptionPassword() {
+        return getBoolean(Settings.Secure.LOCK_SYNC_ENCRYPTION_PASSWORD, false);
+    }
 }

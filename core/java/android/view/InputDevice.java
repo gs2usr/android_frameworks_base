@@ -57,55 +57,62 @@ public final class InputDevice implements Parcelable {
 
     /**
      * A mask for input source classes.
-     * 
+     *
      * Each distinct input source constant has one or more input source class bits set to
      * specify the desired interpretation for its input events.
      */
     public static final int SOURCE_CLASS_MASK = 0x000000ff;
-    
+
+    /**
+     * The input source has no class.
+     *
+     * It is up to the application to determine how to handle the device based on the device type.
+     */
+    public static final int SOURCE_CLASS_NONE = 0x00000000;
+
     /**
      * The input source has buttons or keys.
      * Examples: {@link #SOURCE_KEYBOARD}, {@link #SOURCE_DPAD}.
-     * 
+     *
      * A {@link KeyEvent} should be interpreted as a button or key press.
-     * 
+     *
      * Use {@link #getKeyCharacterMap} to query the device's button and key mappings.
      */
     public static final int SOURCE_CLASS_BUTTON = 0x00000001;
-    
+
     /**
      * The input source is a pointing device associated with a display.
      * Examples: {@link #SOURCE_TOUCHSCREEN}, {@link #SOURCE_MOUSE}.
-     * 
+     *
      * A {@link MotionEvent} should be interpreted as absolute coordinates in
      * display units according to the {@link View} hierarchy.  Pointer down/up indicated when
      * the finger touches the display or when the selection button is pressed/released.
-     * 
+     *
      * Use {@link #getMotionRange} to query the range of the pointing device.  Some devices permit
      * touches outside the display area so the effective range may be somewhat smaller or larger
      * than the actual display size.
      */
     public static final int SOURCE_CLASS_POINTER = 0x00000002;
-    
+
     /**
      * The input source is a trackball navigation device.
      * Examples: {@link #SOURCE_TRACKBALL}.
-     * 
+     *
      * A {@link MotionEvent} should be interpreted as relative movements in device-specific
      * units used for navigation purposes.  Pointer down/up indicates when the selection button
      * is pressed/released.
-     * 
+     *
      * Use {@link #getMotionRange} to query the range of motion.
      */
     public static final int SOURCE_CLASS_TRACKBALL = 0x00000004;
-    
+
     /**
      * The input source is an absolute positioning device not associated with a display
      * (unlike {@link #SOURCE_CLASS_POINTER}).
-     * 
+     *
      * A {@link MotionEvent} should be interpreted as absolute coordinates in
      * device-specific surface units.
-     * 
+     *
      * Use {@link #getMotionRange} to query the range of positions.
      */
     public static final int SOURCE_CLASS_POSITION = 0x00000008;
@@ -123,7 +130,7 @@ public final class InputDevice implements Parcelable {
      * The input source is unknown.
      */
     public static final int SOURCE_UNKNOWN = 0x00000000;
-    
+
     /**
      * The input source is a keyboard.
      *
@@ -134,10 +141,10 @@ public final class InputDevice implements Parcelable {
      * @see #SOURCE_CLASS_BUTTON
      */
     public static final int SOURCE_KEYBOARD = 0x00000100 | SOURCE_CLASS_BUTTON;
-    
+
     /**
      * The input source is a DPad.
-     * 
+     *
      * @see #SOURCE_CLASS_BUTTON
      */
     public static final int SOURCE_DPAD = 0x00000200 | SOURCE_CLASS_BUTTON;
@@ -152,16 +159,16 @@ public final class InputDevice implements Parcelable {
 
     /**
      * The input source is a touch screen pointing device.
-     * 
+     *
      * @see #SOURCE_CLASS_POINTER
      */
     public static final int SOURCE_TOUCHSCREEN = 0x00001000 | SOURCE_CLASS_POINTER;
-    
+
     /**
      * The input source is a mouse pointing device.
      * This code is also used for other mouse-like pointing devices such as trackpads
      * and trackpoints.
-     * 
+     *
      * @see #SOURCE_CLASS_POINTER
      */
     public static final int SOURCE_MOUSE = 0x00002000 | SOURCE_CLASS_POINTER;
@@ -188,18 +195,29 @@ public final class InputDevice implements Parcelable {
 
     /**
      * The input source is a trackball.
-     * 
+     *
      * @see #SOURCE_CLASS_TRACKBALL
      */
     public static final int SOURCE_TRACKBALL = 0x00010000 | SOURCE_CLASS_TRACKBALL;
-    
+
     /**
      * The input source is a touch pad or digitizer tablet that is not
      * associated with a display (unlike {@link #SOURCE_TOUCHSCREEN}).
-     * 
+     *
      * @see #SOURCE_CLASS_POSITION
      */
     public static final int SOURCE_TOUCHPAD = 0x00100000 | SOURCE_CLASS_POSITION;
+
+    /**
+     * The input source is a touch device whose motions should be interpreted as navigation events.
+     *
+     * For example, an upward swipe should be as an upward focus traversal in the same manner as
+     * pressing up on a D-Pad would be. Swipes to the left, right and down should be treated in a
+     * similar manner.
+     *
+     * @see #SOURCE_CLASS_NONE
+     */
+    public static final int SOURCE_TOUCH_NAVIGATION = 0x00200000 | SOURCE_CLASS_NONE;
 
     /**
      * The input source is a joystick.
@@ -217,7 +235,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_X}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_X} instead.
      */
@@ -226,7 +244,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_Y}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_Y} instead.
      */
@@ -235,7 +253,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_PRESSURE}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_PRESSURE} instead.
      */
@@ -244,7 +262,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_SIZE}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_SIZE} instead.
      */
@@ -253,7 +271,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_TOUCH_MAJOR}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_TOUCH_MAJOR} instead.
      */
@@ -262,7 +280,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_TOUCH_MINOR}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_TOUCH_MINOR} instead.
      */
@@ -271,7 +289,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_TOOL_MAJOR}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_TOOL_MAJOR} instead.
      */
@@ -280,7 +298,7 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_TOOL_MINOR}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_TOOL_MINOR} instead.
      */
@@ -289,24 +307,24 @@ public final class InputDevice implements Parcelable {
 
     /**
      * Constant for retrieving the range of values for {@link MotionEvent#AXIS_ORIENTATION}.
-     * 
+     *
      * @see #getMotionRange
      * @deprecated Use {@link MotionEvent#AXIS_ORIENTATION} instead.
      */
     @Deprecated
     public static final int MOTION_RANGE_ORIENTATION = MotionEvent.AXIS_ORIENTATION;
-    
+
     /**
      * There is no keyboard.
      */
     public static final int KEYBOARD_TYPE_NONE = 0;
-    
+
     /**
      * The keyboard is not fully alphabetic.  It may be a numeric keypad or an assortment
      * of buttons that are not mapped as alphabetic keys suitable for text input.
      */
     public static final int KEYBOARD_TYPE_NON_ALPHABETIC = 1;
-    
+
     /**
      * The keyboard supports a complement of alphabetic keys.
      */
@@ -353,8 +371,8 @@ public final class InputDevice implements Parcelable {
             if (axis < 0) {
                 break;
             }
-            addMotionRange(axis, in.readInt(),
-                    in.readFloat(), in.readFloat(), in.readFloat(), in.readFloat());
+            addMotionRange(axis, in.readInt(), in.readFloat(), in.readFloat(), in.readFloat(),
+                    in.readFloat(), in.readFloat());
         }
     }
 
@@ -366,7 +384,7 @@ public final class InputDevice implements Parcelable {
     public static InputDevice getDevice(int id) {
         return InputManager.getInstance().getInputDevice(id);
     }
-    
+
     /**
      * Gets the ids of all input devices in the system.
      * @return The input device ids.
@@ -477,7 +495,7 @@ public final class InputDevice implements Parcelable {
     public String getName() {
         return mName;
     }
-    
+
     /**
      * Gets the input sources supported by this input device as a combined bitfield.
      * @return The supported input sources.
@@ -485,7 +503,7 @@ public final class InputDevice implements Parcelable {
     public int getSources() {
         return mSources;
     }
-    
+
     /**
      * Gets the keyboard type.
      * @return The keyboard type.
@@ -493,7 +511,7 @@ public final class InputDevice implements Parcelable {
     public int getKeyboardType() {
         return mKeyboardType;
     }
-    
+
     /**
      * Gets the key character map associated with this input device.
      * @return The key character map.
@@ -515,7 +533,6 @@ public final class InputDevice implements Parcelable {
      *
      * @see MotionEvent#AXIS_X
      * @see MotionEvent#AXIS_Y
-     * @see #getSupportedAxes()
      */
     public MotionRange getMotionRange(int axis) {
         final int numRanges = mMotionRanges.size();
@@ -541,7 +558,6 @@ public final class InputDevice implements Parcelable {
      *
      * @see MotionEvent#AXIS_X
      * @see MotionEvent#AXIS_Y
-     * @see #getSupportedAxes()
      */
     public MotionRange getMotionRange(int axis, int source) {
         final int numRanges = mMotionRanges.size();
@@ -566,8 +582,8 @@ public final class InputDevice implements Parcelable {
 
     // Called from native code.
     private void addMotionRange(int axis, int source,
-            float min, float max, float flat, float fuzz) {
-        mMotionRanges.add(new MotionRange(axis, source, min, max, flat, fuzz));
+            float min, float max, float flat, float fuzz, float resolution) {
+        mMotionRanges.add(new MotionRange(axis, source, min, max, flat, fuzz, resolution));
     }
 
     /**
@@ -607,14 +623,17 @@ public final class InputDevice implements Parcelable {
         private float mMax;
         private float mFlat;
         private float mFuzz;
+        private float mResolution;
 
-        private MotionRange(int axis, int source, float min, float max, float flat, float fuzz) {
+        private MotionRange(int axis, int source, float min, float max, float flat, float fuzz,
+                float resolution) {
             mAxis = axis;
             mSource = source;
             mMin = min;
             mMax = max;
             mFlat = flat;
             mFuzz = fuzz;
+            mResolution = resolution;
         }
 
         /**
@@ -631,6 +650,19 @@ public final class InputDevice implements Parcelable {
          */
         public int getSource() {
             return mSource;
+        }
+
+
+        /**
+         * Determines whether the event is from the given source.
+         *
+         * @param source The input source to check against. This can be a specific device type,
+         * such as {@link InputDevice#SOURCE_TOUCH_NAVIGATION}, or a more generic device class,
+         * such as {@link InputDevice#SOURCE_CLASS_POINTER}.
+         * @return Whether the event is from the given source.
+         */
+        public boolean isFromSource(int source) {
+            return (getSource() & source) == source;
         }
 
         /**
@@ -680,6 +712,14 @@ public final class InputDevice implements Parcelable {
         public float getFuzz() {
             return mFuzz;
         }
+
+        /**
+         * Gets the resolution for input device measurements with respect to this axis.
+         * @return The resolution in units per millimeter, or units per radian for rotational axes.
+         */
+        public float getResolution() {
+            return mResolution;
+        }
     }
 
     @Override
@@ -703,6 +743,7 @@ public final class InputDevice implements Parcelable {
             out.writeFloat(range.mMax);
             out.writeFloat(range.mFlat);
             out.writeFloat(range.mFuzz);
+            out.writeFloat(range.mResolution);
         }
         out.writeInt(-1);
     }
@@ -757,6 +798,7 @@ public final class InputDevice implements Parcelable {
             description.append(" max=").append(range.mMax);
             description.append(" flat=").append(range.mFlat);
             description.append(" fuzz=").append(range.mFuzz);
+            description.append(" resolution=").append(range.mResolution);
             description.append("\n");
         }
         return description.toString();

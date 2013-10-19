@@ -86,7 +86,8 @@ import java.util.Set;
  * <strong>data scheme+authority+path</strong> if specified) must match.
  *
  * <p><strong>Action</strong> matches if any of the given values match the
- * Intent action, <em>or</em> if no actions were specified in the filter.
+ * Intent action; if the filter specifies no actions, then it will only match
+ * Intents that do not contain an action.
  *
  * <p><strong>Data Type</strong> matches if any of the given values match the
  * Intent type.  The Intent
@@ -113,7 +114,7 @@ import java.util.Set;
  * <em>Note that authority matching here is <b>case sensitive</b>, unlike
  * formal RFC host names!</em>  You should thus always use lower case letters
  * for your authority.
- * 
+ *
  * <p><strong>Data Path</strong> matches if any of the given values match the
  * Intent's data path <em>and</em> both a scheme and authority in the filter
  * has matched against the Intent, <em>or</em> no paths were supplied in the
@@ -665,7 +666,7 @@ public class IntentFilter implements Parcelable {
          * Determine whether this AuthorityEntry matches the given data Uri.
          * <em>Note that this comparison is case-sensitive, unlike formal
          * RFC host names.  You thus should always normalize to lower-case.</em>
-         * 
+         *
          * @param data The Uri to match.
          * @return Returns either {@link IntentFilter#NO_MATCH_DATA},
          * {@link IntentFilter#MATCH_CATEGORY_PORT}, or
@@ -1382,6 +1383,15 @@ public class IntentFilter implements Parcelable {
         }
         dest.writeInt(mPriority);
         dest.writeInt(mHasPartialTypes ? 1 : 0);
+    }
+
+    /**
+     * {@hide}
+     * @param other
+     * @return
+     */
+    public int onCompareTie(IntentFilter other) {
+        return 0;
     }
 
     /**

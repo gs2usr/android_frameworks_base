@@ -253,6 +253,11 @@ class VideoDumpView extends GLSurfaceView implements MediaPlayerControl {
     }
 
     @Override
+    public int getAudioSessionId() {
+        return 0;
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent ev) {
         attachMediaController();
         return true;
@@ -455,7 +460,7 @@ class VideoDumpView extends GLSurfaceView implements MediaPlayerControl {
 
         /**
          * Called when the surface changed size.
-         * Called after the surface is created and whenever the OpenGL surface size changes. 
+         * Called after the surface is created and whenever the OpenGL surface size changes.
          */
         public void onSurfaceChanged(GL10 glUnused, int width, int height) {
             Log.d(TAG, "Surface size: " + width + "x" + height);

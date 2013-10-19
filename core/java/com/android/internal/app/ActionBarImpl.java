@@ -86,20 +86,20 @@ public class ActionBarImpl extends ActionBar {
 
     private TabImpl mSelectedTab;
     private int mSavedTabPosition = INVALID_POSITION;
-    
+
     private boolean mDisplayHomeAsUpSet;
 
     ActionModeImpl mActionMode;
     ActionMode mDeferredDestroyActionMode;
     ActionMode.Callback mDeferredModeDestroyCallback;
-    
+
     private boolean mLastMenuVisibility;
     private ArrayList<OnMenuVisibilityListener> mMenuVisibilityListeners =
             new ArrayList<OnMenuVisibilityListener>();
 
     private static final int CONTEXT_DISPLAY_NORMAL = 0;
     private static final int CONTEXT_DISPLAY_SPLIT = 1;
-    
+
     private static final int INVALID_POSITION = -1;
 
     private int mContextDisplayMode;
@@ -110,6 +110,7 @@ public class ActionBarImpl extends ActionBar {
 
     private int mCurWindowVisibility = View.VISIBLE;
 
+    private boolean mContentAnimations = true;
     private boolean mHiddenByApp;
     private boolean mHiddenBySystem;
     private boolean mShowingForMode;
@@ -122,7 +123,7 @@ public class ActionBarImpl extends ActionBar {
     final AnimatorListener mHideListener = new AnimatorListenerAdapter() {
         @Override
         public void onAnimationEnd(Animator animation) {
-            if (mContentView != null) {
+            if (mContentAnimations && mContentView != null) {
                 mContentView.setTranslationY(0);
                 mTopVisibilityView.setTranslationY(0);
             }
@@ -151,23 +152,24 @@ public class ActionBarImpl extends ActionBar {
         mActivity = activity;
         Window window = activity.getWindow();
         View decor = window.getDecorView();
-        init(decor);
-        if (!mActivity.getWindow().hasFeature(Window.FEATURE_ACTION_BAR_OVERLAY)) {
+        boolean overlayMode = mActivity.getWindow().hasFeature(Window.FEATURE_ACTION_BAR_OVERLAY);
+        init(decor, overlayMode);
+        if (!overlayMode) {
             mContentView = decor.findViewById(android.R.id.content);
         }
     }
 
     public ActionBarImpl(Dialog dialog) {
         mDialog = dialog;
-        init(dialog.getWindow().getDecorView());
+        init(dialog.getWindow().getDecorView(), false);
     }
 
-    private void init(View decor) {
+    private void init(View decor, boolean overlayMode) {
         mContext = decor.getContext();
         mOverlayLayout = (ActionBarOverlayLayout) decor.findViewById(
                 com.android.internal.R.id.action_bar_overlay_layout);
         if (mOverlayLayout != null) {
-            mOverlayLayout.setActionBar(this);
+            mOverlayLayout.setActionBar(this, overlayMode);
         }
         mActionView = (ActionBarView) decor.findViewById(com.android.internal.R.id.action_bar);
         mContextView = (ActionBarContextView) decor.findViewById(
@@ -395,7 +397,7 @@ public class ActionBarImpl extends ActionBar {
     }
 
     public void setDisplayOptions(int options, int mask) {
-        final int current = mActionView.getDisplayOptions(); 
+        final int current = mActionView.getDisplayOptions();
         if ((mask & DISPLAY_HOME_AS_UP) != 0) {
             mDisplayHomeAsUpSet = true;
         }
@@ -586,6 +588,10 @@ public class ActionBarImpl extends ActionBar {
         return mContainerView.getHeight();
     }
 
+    public void enableContentAnimations(boolean enabled) {
+        mContentAnimations = enabled;
+    }
+
     @Override
     public void show() {
         if (mHiddenByApp) {
@@ -684,7 +690,7 @@ public class ActionBarImpl extends ActionBar {
             AnimatorSet anim = new AnimatorSet();
             AnimatorSet.Builder b = anim.play(ObjectAnimator.ofFloat(mTopVisibilityView,
                     "translationY", 0));
-            if (mContentView != null) {
+            if (mContentAnimations && mContentView != null) {
                 b.with(ObjectAnimator.ofFloat(mContentView, "translationY",
                         startingY, 0));
             }
@@ -709,7 +715,7 @@ public class ActionBarImpl extends ActionBar {
         } else {
             mTopVisibilityView.setAlpha(1);
             mTopVisibilityView.setTranslationY(0);
-            if (mContentView != null) {
+            if (mContentAnimations && mContentView != null) {
                 mContentView.setTranslationY(0);
             }
             if (mSplitView != null && mContextDisplayMode == CONTEXT_DISPLAY_SPLIT) {
@@ -742,7 +748,7 @@ public class ActionBarImpl extends ActionBar {
             }
             AnimatorSet.Builder b = anim.play(ObjectAnimator.ofFloat(mTopVisibilityView,
                     "translationY", endingY));
-            if (mContentView != null) {
+            if (mContentAnimations && mContentView != null) {
                 b.with(ObjectAnimator.ofFloat(mContentView, "translationY",
                         0, endingY));
             }
@@ -791,7 +797,7 @@ public class ActionBarImpl extends ActionBar {
             currentTheme.resolveAttribute(com.android.internal.R.attr.actionBarWidgetTheme,
                     outValue, true);
             final int targetThemeRes = outValue.resourceId;
-            
+
             if (targetThemeRes != 0 && mContext.getThemeResId() != targetThemeRes) {
                 mThemedContext = new ContextThemeWrapper(mContext, targetThemeRes);
             } else {
@@ -800,20 +806,40 @@ public class ActionBarImpl extends ActionBar {
         }
         return mThemedContext;
     }
-    
+
     @Override
     public boolean isTitleTruncated() {
         return mActionView != null && mActionView.isTitleTruncated();
     }
 
+    @Override
+    public void setHomeAsUpIndicator(Drawable indicator) {
+        mActionView.setHomeAsUpIndicator(indicator);
+    }
+
+    @Override
+    public void setHomeAsUpIndicator(int resId) {
+        mActionView.setHomeAsUpIndicator(resId);
+    }
+
+    @Override
+    public void setHomeActionContentDescription(CharSequence description) {
+        mActionView.setHomeActionContentDescription(description);
+    }
+
+    @Override
+    public void setHomeActionContentDescription(int resId) {
+        mActionView.setHomeActionContentDescription(resId);
+    }
+
     /**
-     * @hide 
+     * @hide
      */
     public class ActionModeImpl extends ActionMode implements MenuBuilder.Callback {
         private ActionMode.Callback mCallback;
         private MenuBuilder mMenu;
         private WeakReference<View> mCustomView;
-        
+
         public ActionModeImpl(ActionMode.Callback callback) {
             mCallback = callback;
             mMenu = new MenuBuilder(getThemedContext())
@@ -914,7 +940,7 @@ public class ActionBarImpl extends ActionBar {
         public CharSequence getSubtitle() {
             return mContextView.getSubtitle();
         }
-        
+
         @Override
         public void setTitleOptionalHint(boolean titleOptional) {
             super.setTitleOptionalHint(titleOptional);

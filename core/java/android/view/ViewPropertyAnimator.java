@@ -43,7 +43,7 @@ import java.util.Set;
  * <p>This class is not constructed by the caller, but rather by the View whose properties
  * it will animate. Calls to {@link android.view.View#animate()} will return a reference
  * to the appropriate ViewPropertyAnimator object for that View.</p>
- * 
+ *
  */
 public class ViewPropertyAnimator {
 
@@ -93,7 +93,7 @@ public class ViewPropertyAnimator {
     private boolean mInterpolatorSet = false;
 
     /**
-     * Listener for the lifecycle events of the underlying 
+     * Listener for the lifecycle events of the underlying
      */
     private Animator.AnimatorListener mListener = null;
 
@@ -312,7 +312,7 @@ public class ViewPropertyAnimator {
      * Sets the interpolator for the underlying animator that animates the requested properties.
      * By default, the animator uses the default interpolator for ValueAnimator. Calling this method
      * will cause the declared object to be used instead.
-     * 
+     *
      * @param interpolator The TimeInterpolator to be used for ensuing property animations.
      * @return This object, allowing calls to methods in this class to be chained.
      */
@@ -320,6 +320,15 @@ public class ViewPropertyAnimator {
         mInterpolatorSet = true;
         mInterpolator = interpolator;
         return this;
+    }
+
+    /**
+     * Returns the timing interpolator that this animation uses.
+     *
+     * @return The timing interpolator for this animation.
+     */
+    public TimeInterpolator getInterpolator() {
+        return null;
     }
 
     /**
@@ -829,7 +838,7 @@ public class ViewPropertyAnimator {
         NameValuesHolder nameValuePair = new NameValuesHolder(constantName, startValue, byValue);
         mPendingAnimations.add(nameValuePair);
         mView.removeCallbacks(mAnimationStarter);
-        mView.post(mAnimationStarter);
+        mView.postOnAnimation(mAnimationStarter);
     }
 
     /**

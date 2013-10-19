@@ -31,7 +31,7 @@ import java.util.Arrays;
  * This class implements the {@link Loader} protocol in a standard way for
  * querying cursors, building on {@link AsyncTaskLoader} to perform the cursor
  * query on a background thread so that it does not block the application's UI.
- * 
+ *
  * <p>A CursorLoader must be built with the full information for the query to
  * perform, either through the
  * {@link #CursorLoader(Context, Uri, String[], String, String[], String)} or
@@ -65,9 +65,14 @@ public class CursorLoader extends AsyncTaskLoader<Cursor> {
             Cursor cursor = getContext().getContentResolver().query(mUri, mProjection, mSelection,
                     mSelectionArgs, mSortOrder, mCancellationSignal);
             if (cursor != null) {
-                // Ensure the cursor window is filled
-                cursor.getCount();
-                registerContentObserver(cursor, mObserver);
+                try {
+                    // Ensure the cursor window is filled.
+                    cursor.getCount();
+                    cursor.registerContentObserver(mObserver);
+                } catch (RuntimeException ex) {
+                    cursor.close();
+                    throw ex;
+                }
             }
             return cursor;
         } finally {
@@ -86,14 +91,6 @@ public class CursorLoader extends AsyncTaskLoader<Cursor> {
                 mCancellationSignal.cancel();
             }
         }
-    }
-
-    /**
-     * Registers an observer to get notifications from the content provider
-     * when the cursor needs to be refreshed.
-     */
-    void registerContentObserver(Cursor cursor, ContentObserver observer) {
-        cursor.registerContentObserver(mObserver);
     }
 
     /* Runs on the UI thread */
@@ -181,7 +178,7 @@ public class CursorLoader extends AsyncTaskLoader<Cursor> {
     @Override
     protected void onReset() {
         super.onReset();
-        
+
         // Ensure the loader is stopped
         onStopLoading();
 

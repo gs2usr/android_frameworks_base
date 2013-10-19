@@ -45,6 +45,7 @@
         android:layout_height="match_parent"
         android:layout_gravity="center_vertical"
         android:src="?android:attr/searchViewSearchIcon"
+        android:focusable="true"
         android:contentDescription="@string/searchview_description_search"
     />
 
@@ -123,7 +124,7 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:background="?android:attr/searchViewTextFieldRight">
-    
+
             <ImageView
                 android:id="@+id/search_go_btn"
                 android:layout_width="wrap_content"

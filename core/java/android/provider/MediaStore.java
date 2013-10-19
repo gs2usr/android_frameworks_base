@@ -1349,6 +1349,12 @@ public final class MediaStore {
             }
 
             public static Uri getContentUriForPath(String path) {
+                for (String ep : EXTERNAL_PATHS) {
+                    if (path.startsWith(ep)) {
+                        return EXTERNAL_CONTENT_URI;
+                    }
+                }
+
                 return (path.startsWith(Environment.getExternalStorageDirectory().getPath()) ?
                         EXTERNAL_CONTENT_URI : INTERNAL_CONTENT_URI);
             }
@@ -2161,15 +2167,18 @@ public final class MediaStore {
      * @return A version string, or null if the version could not be determined.
      */
     public static String getVersion(Context context) {
-        Cursor c = context.getContentResolver().query(
-                Uri.parse(CONTENT_AUTHORITY_SLASH + "none/version"),
-                null, null, null, null);
-        if (c != null) {
-            try {
+        Cursor c = null;
+        try {
+            c = context.getContentResolver().query(
+            Uri.parse(CONTENT_AUTHORITY_SLASH + "none/version"),
+            null, null, null, null);
+            if (c != null) {
                 if (c.moveToFirst()) {
                     return c.getString(0);
                 }
-            } finally {
+            }
+        } finally {
+            if (c != null) {
                 c.close();
             }
         }

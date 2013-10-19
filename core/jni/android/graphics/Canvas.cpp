@@ -40,19 +40,34 @@
 static uint32_t get_thread_msec() {
 #if defined(HAVE_POSIX_CLOCKS)
     struct timespec tm;
-    
+
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
-    
+
     return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
 #else
     struct timeval tv;
-    
+
     gettimeofday(&tv, NULL);
     return tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 #endif
 }
 
 namespace android {
+
+class ClipCopier : public SkCanvas::ClipVisitor {
+public:
+    ClipCopier(SkCanvas* dstCanvas) : m_dstCanvas(dstCanvas) {}
+
+    virtual void clipRect(const SkRect& rect, SkRegion::Op op, bool antialias) {
+        m_dstCanvas->clipRect(rect, op, antialias);
+    }
+    virtual void clipPath(const SkPath& path, SkRegion::Op op, bool antialias) {
+        m_dstCanvas->clipPath(path, op, antialias);
+    }
+
+private:
+    SkCanvas* m_dstCanvas;
+};
 
 class SkCanvasGlue {
 public:
@@ -62,9 +77,28 @@ public:
     }
 
     static SkCanvas* initRaster(JNIEnv* env, jobject, SkBitmap* bitmap) {
-        return bitmap ? new SkCanvas(*bitmap) : new SkCanvas;
+        if (bitmap) {
+            return new SkCanvas(*bitmap);
+        } else {
+            // Create an empty bitmap device to prevent callers from crashing
+            // if they attempt to draw into this canvas.
+            SkBitmap emptyBitmap;
+            return new SkCanvas(emptyBitmap);
+        }
     }
-    
+
+    static void copyCanvasState(JNIEnv* env, jobject clazz,
+                                SkCanvas* srcCanvas, SkCanvas* dstCanvas) {
+        if (srcCanvas && dstCanvas) {
+            dstCanvas->setMatrix(srcCanvas->getTotalMatrix());
+            if (NULL != srcCanvas->getDevice() && NULL != dstCanvas->getDevice()) {
+                ClipCopier copier(dstCanvas);
+                srcCanvas->replayClips(&copier);
+            }
+        }
+    }
+
+
     static void freeCaches(JNIEnv* env, jobject) {
         // these are called in no particular order
         SkImageRef_GlobalPool::SetRAMUsed(0);
@@ -80,37 +114,29 @@ public:
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
         return canvas->getDevice()->accessBitmap(false).isOpaque();
     }
-    
+
     static int getWidth(JNIEnv* env, jobject jcanvas) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
         return canvas->getDevice()->accessBitmap(false).width();
     }
-    
+
     static int getHeight(JNIEnv* env, jobject jcanvas) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
         return canvas->getDevice()->accessBitmap(false).height();
     }
 
-    static void setBitmap(JNIEnv* env, jobject, SkCanvas* canvas, SkBitmap* bitmap) {
-        if (bitmap) {
-            canvas->setBitmapDevice(*bitmap);
-        } else {
-            canvas->setDevice(NULL);
-        }
-    }
- 
     static int saveAll(JNIEnv* env, jobject jcanvas) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         return GraphicsJNI::getNativeCanvas(env, jcanvas)->save();
     }
-    
+
     static int save(JNIEnv* env, jobject jcanvas, SkCanvas::SaveFlags flags) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         return GraphicsJNI::getNativeCanvas(env, jcanvas)->save(flags);
     }
-    
+
     static int saveLayer(JNIEnv* env, jobject, SkCanvas* canvas, jobject bounds,
                          SkPaint* paint, int flags) {
         SkRect* bounds_ = NULL;
@@ -121,7 +147,7 @@ public:
         }
         return canvas->saveLayer(bounds_, paint, (SkCanvas::SaveFlags)flags);
     }
- 
+
     static int saveLayer4F(JNIEnv* env, jobject, SkCanvas* canvas,
                            jfloat l, jfloat t, jfloat r, jfloat b,
                            SkPaint* paint, int flags) {
@@ -130,7 +156,7 @@ public:
                    SkFloatToScalar(b));
         return canvas->saveLayer(&bounds, paint, (SkCanvas::SaveFlags)flags);
     }
- 
+
     static int saveLayerAlpha(JNIEnv* env, jobject, SkCanvas* canvas,
                               jobject bounds, int alpha, int flags) {
         SkRect* bounds_ = NULL;
@@ -142,7 +168,7 @@ public:
         return canvas->saveLayerAlpha(bounds_, alpha,
                                       (SkCanvas::SaveFlags)flags);
     }
- 
+
     static int saveLayerAlpha4F(JNIEnv* env, jobject, SkCanvas* canvas,
                                 jfloat l, jfloat t, jfloat r, jfloat b,
                                 int alpha, int flags) {
@@ -152,7 +178,7 @@ public:
         return canvas->saveLayerAlpha(&bounds, alpha,
                                       (SkCanvas::SaveFlags)flags);
     }
- 
+
     static void restore(JNIEnv* env, jobject jcanvas) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
@@ -162,12 +188,12 @@ public:
         }
         canvas->restore();
     }
- 
+
     static int getSaveCount(JNIEnv* env, jobject jcanvas) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         return GraphicsJNI::getNativeCanvas(env, jcanvas)->getSaveCount();
     }
- 
+
     static void restoreToCount(JNIEnv* env, jobject jcanvas, int restoreCount) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
@@ -177,39 +203,39 @@ public:
         }
         canvas->restoreToCount(restoreCount);
     }
- 
+
     static void translate(JNIEnv* env, jobject jcanvas, jfloat dx, jfloat dy) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkScalar dx_ = SkFloatToScalar(dx);
         SkScalar dy_ = SkFloatToScalar(dy);
         (void)GraphicsJNI::getNativeCanvas(env, jcanvas)->translate(dx_, dy_);
     }
- 
+
     static void scale__FF(JNIEnv* env, jobject jcanvas, jfloat sx, jfloat sy) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkScalar sx_ = SkFloatToScalar(sx);
         SkScalar sy_ = SkFloatToScalar(sy);
         (void)GraphicsJNI::getNativeCanvas(env, jcanvas)->scale(sx_, sy_);
     }
- 
+
     static void rotate__F(JNIEnv* env, jobject jcanvas, jfloat degrees) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkScalar degrees_ = SkFloatToScalar(degrees);
         (void)GraphicsJNI::getNativeCanvas(env, jcanvas)->rotate(degrees_);
     }
- 
+
     static void skew__FF(JNIEnv* env, jobject jcanvas, jfloat sx, jfloat sy) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         SkScalar sx_ = SkFloatToScalar(sx);
         SkScalar sy_ = SkFloatToScalar(sy);
         (void)GraphicsJNI::getNativeCanvas(env, jcanvas)->skew(sx_, sy_);
     }
- 
+
     static void concat(JNIEnv* env, jobject, SkCanvas* canvas,
                        const SkMatrix* matrix) {
         canvas->concat(*matrix);
     }
-    
+
     static void setMatrix(JNIEnv* env, jobject, SkCanvas* canvas,
                           const SkMatrix* matrix) {
         if (NULL == matrix) {
@@ -218,7 +244,7 @@ public:
             canvas->setMatrix(*matrix);
         }
     }
-    
+
     static jboolean clipRect_FFFF(JNIEnv* env, jobject jcanvas, jfloat left,
                                   jfloat top, jfloat right, jfloat bottom) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
@@ -228,7 +254,7 @@ public:
         SkCanvas* c = GraphicsJNI::getNativeCanvas(env, jcanvas);
         return c->clipRect(r);
     }
-    
+
     static jboolean clipRect_IIII(JNIEnv* env, jobject jcanvas, jint left,
                                   jint top, jint right, jint bottom) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
@@ -237,7 +263,7 @@ public:
               SkIntToScalar(right), SkIntToScalar(bottom));
         return GraphicsJNI::getNativeCanvas(env, jcanvas)->clipRect(r);
     }
-    
+
     static jboolean clipRect_RectF(JNIEnv* env, jobject jcanvas, jobject rectf) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         NPE_CHECK_RETURN_ZERO(env, rectf);
@@ -245,7 +271,7 @@ public:
         SkRect tmp;
         return c->clipRect(*GraphicsJNI::jrectf_to_rect(env, rectf, &tmp));
     }
-    
+
     static jboolean clipRect_Rect(JNIEnv* env, jobject jcanvas, jobject rect) {
         NPE_CHECK_RETURN_ZERO(env, jcanvas);
         NPE_CHECK_RETURN_ZERO(env, rect);
@@ -253,7 +279,7 @@ public:
         SkRect tmp;
         return c->clipRect(*GraphicsJNI::jrect_to_rect(env, rect, &tmp));
     }
-    
+
     static jboolean clipRect(JNIEnv* env, jobject, SkCanvas* canvas,
                              float left, float top, float right, float bottom,
                              int op) {
@@ -262,68 +288,68 @@ public:
                  SkFloatToScalar(right), SkFloatToScalar(bottom));
         return canvas->clipRect(rect, (SkRegion::Op)op);
     }
- 
+
     static jboolean clipPath(JNIEnv* env, jobject, SkCanvas* canvas,
                              SkPath* path, int op) {
         return canvas->clipPath(*path, (SkRegion::Op)op);
     }
- 
+
     static jboolean clipRegion(JNIEnv* env, jobject, SkCanvas* canvas,
                                SkRegion* deviceRgn, int op) {
         return canvas->clipRegion(*deviceRgn, (SkRegion::Op)op);
     }
-    
+
     static void setDrawFilter(JNIEnv* env, jobject, SkCanvas* canvas,
                               SkDrawFilter* filter) {
         canvas->setDrawFilter(filter);
     }
-    
-    static jboolean quickReject__RectFI(JNIEnv* env, jobject, SkCanvas* canvas,
-                                        jobject rect, int edgetype) {
+
+    static jboolean quickReject__RectF(JNIEnv* env, jobject, SkCanvas* canvas,
+                                        jobject rect) {
         SkRect rect_;
         GraphicsJNI::jrectf_to_rect(env, rect, &rect_);
-        return canvas->quickReject(rect_, (SkCanvas::EdgeType)edgetype);
+        return canvas->quickReject(rect_);
     }
- 
-    static jboolean quickReject__PathI(JNIEnv* env, jobject, SkCanvas* canvas,
-                                       SkPath* path, int edgetype) {
-        return canvas->quickReject(*path, (SkCanvas::EdgeType)edgetype);
+
+    static jboolean quickReject__Path(JNIEnv* env, jobject, SkCanvas* canvas,
+                                       SkPath* path) {
+        return canvas->quickReject(*path);
     }
- 
-    static jboolean quickReject__FFFFI(JNIEnv* env, jobject, SkCanvas* canvas,
+
+    static jboolean quickReject__FFFF(JNIEnv* env, jobject, SkCanvas* canvas,
                                        jfloat left, jfloat top, jfloat right,
-                                       jfloat bottom, int edgetype) {
+                                       jfloat bottom) {
         SkRect r;
         r.set(SkFloatToScalar(left), SkFloatToScalar(top),
               SkFloatToScalar(right), SkFloatToScalar(bottom));
-        return canvas->quickReject(r, (SkCanvas::EdgeType)edgetype);
+        return canvas->quickReject(r);
     }
- 
+
     static void drawRGB(JNIEnv* env, jobject, SkCanvas* canvas,
                         jint r, jint g, jint b) {
         canvas->drawARGB(0xFF, r, g, b);
     }
- 
+
     static void drawARGB(JNIEnv* env, jobject, SkCanvas* canvas,
                          jint a, jint r, jint g, jint b) {
         canvas->drawARGB(a, r, g, b);
     }
- 
+
     static void drawColor__I(JNIEnv* env, jobject, SkCanvas* canvas,
                              jint color) {
         canvas->drawColor(color);
     }
- 
+
     static void drawColor__II(JNIEnv* env, jobject, SkCanvas* canvas,
                               jint color, SkPorterDuff::Mode mode) {
         canvas->drawColor(color, SkPorterDuff::ToXfermodeMode(mode));
     }
- 
+
     static void drawPaint(JNIEnv* env, jobject, SkCanvas* canvas,
                           SkPaint* paint) {
         canvas->drawPaint(*paint);
     }
-    
+
     static void doPoints(JNIEnv* env, jobject jcanvas, jfloatArray jptsArray,
                          jint offset, jint count, jobject jpaint,
                          SkCanvas::PointMode mode) {
@@ -332,16 +358,16 @@ public:
         NPE_CHECK_RETURN_VOID(env, jpaint);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
         const SkPaint& paint = *GraphicsJNI::getNativePaint(env, jpaint);
-        
+
         AutoJavaFloatArray autoPts(env, jptsArray);
         float* floats = autoPts.ptr();
         const int length = autoPts.length();
-        
+
         if ((offset | count) < 0 || offset + count > length) {
             doThrowAIOOBE(env);
             return;
         }
-        
+
         // now convert the floats into SkPoints
         count >>= 1;    // now it is the number of points
         SkAutoSTMalloc<32, SkPoint> storage(count);
@@ -350,32 +376,32 @@ public:
         for (int i = 0; i < count; i++) {
             pts[i].set(SkFloatToScalar(src[0]), SkFloatToScalar(src[1]));
             src += 2;
-        }        
+        }
         canvas->drawPoints(mode, count, pts, paint);
     }
-    
+
     static void drawPoints(JNIEnv* env, jobject jcanvas, jfloatArray jptsArray,
                            jint offset, jint count, jobject jpaint) {
         doPoints(env, jcanvas, jptsArray, offset, count, jpaint,
                  SkCanvas::kPoints_PointMode);
     }
-    
+
     static void drawLines(JNIEnv* env, jobject jcanvas, jfloatArray jptsArray,
                            jint offset, jint count, jobject jpaint) {
         doPoints(env, jcanvas, jptsArray, offset, count, jpaint,
                  SkCanvas::kLines_PointMode);
     }
-    
+
     static void drawPoint(JNIEnv* env, jobject jcanvas, float x, float y,
                           jobject jpaint) {
         NPE_CHECK_RETURN_VOID(env, jcanvas);
         NPE_CHECK_RETURN_VOID(env, jpaint);
         SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, jcanvas);
         const SkPaint& paint = *GraphicsJNI::getNativePaint(env, jpaint);
-        
+
         canvas->drawPoint(SkFloatToScalar(x), SkFloatToScalar(y), paint);
     }
- 
+
     static void drawLine__FFFFPaint(JNIEnv* env, jobject, SkCanvas* canvas,
                                     jfloat startX, jfloat startY, jfloat stopX,
                                     jfloat stopY, SkPaint* paint) {
@@ -383,14 +409,14 @@ public:
                          SkFloatToScalar(stopX), SkFloatToScalar(stopY),
                          *paint);
     }
- 
+
     static void drawRect__RectFPaint(JNIEnv* env, jobject, SkCanvas* canvas,
                                      jobject rect, SkPaint* paint) {
         SkRect rect_;
         GraphicsJNI::jrectf_to_rect(env, rect, &rect_);
         canvas->drawRect(rect_, *paint);
     }
- 
+
     static void drawRect__FFFFPaint(JNIEnv* env, jobject, SkCanvas* canvas,
                                     jfloat left, jfloat top, jfloat right,
                                     jfloat bottom, SkPaint* paint) {
@@ -400,20 +426,20 @@ public:
         SkScalar bottom_ = SkFloatToScalar(bottom);
         canvas->drawRectCoords(left_, top_, right_, bottom_, *paint);
     }
- 
+
     static void drawOval(JNIEnv* env, jobject, SkCanvas* canvas, jobject joval,
                          SkPaint* paint) {
         SkRect oval;
         GraphicsJNI::jrectf_to_rect(env, joval, &oval);
         canvas->drawOval(oval, *paint);
     }
- 
+
     static void drawCircle(JNIEnv* env, jobject, SkCanvas* canvas, jfloat cx,
                            jfloat cy, jfloat radius, SkPaint* paint) {
         canvas->drawCircle(SkFloatToScalar(cx), SkFloatToScalar(cy),
                            SkFloatToScalar(radius), *paint);
     }
- 
+
     static void drawArc(JNIEnv* env, jobject, SkCanvas* canvas, jobject joval,
                         jfloat startAngle, jfloat sweepAngle,
                         jboolean useCenter, SkPaint* paint) {
@@ -422,7 +448,7 @@ public:
         canvas->drawArc(oval, SkFloatToScalar(startAngle),
                         SkFloatToScalar(sweepAngle), useCenter, *paint);
     }
- 
+
     static void drawRoundRect(JNIEnv* env, jobject, SkCanvas* canvas,
                               jobject jrect, jfloat rx, jfloat ry,
                               SkPaint* paint) {
@@ -431,17 +457,17 @@ public:
         canvas->drawRoundRect(rect, SkFloatToScalar(rx), SkFloatToScalar(ry),
                               *paint);
     }
- 
+
     static void drawPath(JNIEnv* env, jobject, SkCanvas* canvas, SkPath* path,
                          SkPaint* paint) {
         canvas->drawPath(*path, *paint);
     }
- 
+
     static void drawPicture(JNIEnv* env, jobject, SkCanvas* canvas,
                             SkPicture* picture) {
         SkASSERT(canvas);
         SkASSERT(picture);
-        
+
 #ifdef TIME_DRAW
         SkMSec now = get_thread_msec(); //SkTime::GetMSecs();
 #endif
@@ -493,7 +519,6 @@ public:
                         jobject srcIRect, const SkRect& dst, SkPaint* paint,
                         jint screenDensity, jint bitmapDensity) {
         SkIRect    src, *srcPtr = NULL;
-        SkPaint    filteredPaint;
 
         if (NULL != srcIRect) {
             GraphicsJNI::jrect_to_irect(env, srcIRect, &src);
@@ -501,28 +526,12 @@ public:
         }
 
         if (screenDensity != 0 && screenDensity != bitmapDensity) {
+            SkPaint filteredPaint;
             if (paint) {
                 filteredPaint = *paint;
             }
             filteredPaint.setFilterBitmap(true);
-            paint = &filteredPaint;
-        }
-
-        //If we're doing downscaling and we have an unscaled bitmap, convert
-        //this to an upscaling operation, or at least less of a downscale
-        SkBitmap*  unscaled = bitmap->unscaledBitmap();
-        if (NULL != srcPtr && NULL != unscaled) {
-            //use new bitmap and adapt the coordinates of the src rect to this new bitmap
-            SkScalar   dx, dy;
-            SkRect     srcF;
-            dx = SkScalarDiv(SkIntToScalar(unscaled->width()), SkIntToScalar(bitmap->width()));
-            dy = SkScalarDiv(SkIntToScalar(unscaled->height()), SkIntToScalar(bitmap->height()));
-            srcF.set(SkScalarMul(SkIntToScalar(src.left()), dx),
-                SkScalarMul(SkIntToScalar(src.top()), dy),
-                SkScalarMul(SkIntToScalar(src.right()), dx),
-                SkScalarMul(SkIntToScalar(src.bottom()), dy));
-
-            canvas->drawBitmapScalarRect(*unscaled, &srcF, dst, paint);
+            canvas->drawBitmapRect(*bitmap, srcPtr, dst, &filteredPaint);
         } else {
             canvas->drawBitmapRect(*bitmap, srcPtr, dst, paint);
         }
@@ -537,7 +546,7 @@ public:
         doDrawBitmap(env, canvas, bitmap, srcIRect, dst, paint,
                 screenDensity, bitmapDensity);
     }
-    
+
     static void drawBitmapRR(JNIEnv* env, jobject, SkCanvas* canvas,
                              SkBitmap* bitmap, jobject srcIRect,
                              jobject dstRect, SkPaint* paint,
@@ -547,35 +556,35 @@ public:
         doDrawBitmap(env, canvas, bitmap, srcIRect, dst, paint,
                 screenDensity, bitmapDensity);
     }
-    
+
     static void drawBitmapArray(JNIEnv* env, jobject, SkCanvas* canvas,
                                 jintArray jcolors, int offset, int stride,
                                 jfloat x, jfloat y, int width, int height,
                                 jboolean hasAlpha, SkPaint* paint)
     {
         SkBitmap    bitmap;
-        
+
         bitmap.setConfig(hasAlpha ? SkBitmap::kARGB_8888_Config :
                          SkBitmap::kRGB_565_Config, width, height);
         if (!bitmap.allocPixels()) {
             return;
         }
-        
+
         if (!GraphicsJNI::SetPixels(env, jcolors, offset, stride,
                                     0, 0, width, height, bitmap)) {
             return;
         }
-        
+
         canvas->drawBitmap(bitmap, SkFloatToScalar(x), SkFloatToScalar(y),
                            paint);
     }
-    
+
     static void drawBitmapMatrix(JNIEnv* env, jobject, SkCanvas* canvas,
                                  const SkBitmap* bitmap, const SkMatrix* matrix,
                                  const SkPaint* paint) {
         canvas->drawBitmapMatrix(*bitmap, *matrix, paint);
     }
-    
+
     static void drawBitmapMesh(JNIEnv* env, jobject, SkCanvas* canvas,
                           const SkBitmap* bitmap, int meshWidth, int meshHeight,
                           jfloatArray jverts, int vertIndex, jintArray jcolors,
@@ -586,7 +595,7 @@ public:
 
         AutoJavaFloatArray  vertA(env, jverts, vertIndex + (ptCount << 1));
         AutoJavaIntArray    colorA(env, jcolors, colorIndex + ptCount);
-        
+
         /*  Our temp storage holds 2 or 3 arrays.
             texture points [ptCount * sizeof(SkPoint)]
             optionally vertex points [ptCount * sizeof(SkPoint)] if we need a
@@ -625,7 +634,7 @@ public:
             const SkScalar h = SkIntToScalar(bitmap->height());
             const SkScalar dx = w / meshWidth;
             const SkScalar dy = h / meshHeight;
-            
+
             SkPoint* texsPtr = texs;
             SkScalar y = 0;
             for (int i = 0; i <= meshHeight; i++) {
@@ -644,7 +653,7 @@ public:
             }
             SkASSERT(texsPtr - texs == ptCount);
         }
-        
+
         // cons up indices
         {
             uint16_t* indexPtr = indices;
@@ -720,7 +729,7 @@ public:
             count += ptCount;   // += for texs
         }
         SkAutoMalloc storage(count * sizeof(SkPoint));
-        verts = (SkPoint*)storage.get();        
+        verts = (SkPoint*)storage.get();
         const float* src = vertA.ptr() + vertIndex;
         for (int i = 0; i < ptCount; i++) {
             verts[i].set(SkFloatToFixed(src[0]), SkFloatToFixed(src[1]));
@@ -887,12 +896,12 @@ static void doDrawTextDecorations(SkCanvas* canvas, jfloat x, jfloat y, jfloat l
             posPtr[indx].fX = SkFloatToScalar(posArray[indx << 1]);
             posPtr[indx].fY = SkFloatToScalar(posArray[(indx << 1) + 1]);
         }
-        
+
         SkPaint::TextEncoding encoding = paint->getTextEncoding();
         paint->setTextEncoding(SkPaint::kUTF16_TextEncoding);
         canvas->drawPosText(textArray + index, count << 1, posPtr, *paint);
         paint->setTextEncoding(encoding);
-        
+
         if (text) {
             env->ReleaseCharArrayElements(text, textArray, 0);
         }
@@ -951,16 +960,44 @@ static void doDrawTextDecorations(SkCanvas* canvas, jfloat x, jfloat y, jfloat l
         env->ReleaseStringChars(text, text_);
     }
 
+
+    // This function is a mirror of SkCanvas::getClipBounds except that it does
+    // not outset the edge of the clip to account for anti-aliasing. There is
+    // a skia bug to investigate pushing this logic into back into skia.
+    // (see https://code.google.com/p/skia/issues/detail?id=1303)
+    static bool getHardClipBounds(SkCanvas* canvas, SkRect* bounds) {
+        SkIRect ibounds;
+        if (!canvas->getClipDeviceBounds(&ibounds)) {
+            return false;
+        }
+
+        SkMatrix inverse;
+        // if we can't invert the CTM, we can't return local clip bounds
+        if (!canvas->getTotalMatrix().invert(&inverse)) {
+            if (bounds) {
+                bounds->setEmpty();
+            }
+            return false;
+        }
+
+        if (NULL != bounds) {
+            SkRect r = SkRect::Make(ibounds);
+            inverse.mapRect(bounds, r);
+        }
+        return true;
+    }
+
     static bool getClipBounds(JNIEnv* env, jobject, SkCanvas* canvas,
                               jobject bounds) {
         SkRect   r;
         SkIRect ir;
-        bool     result = canvas->getClipBounds(&r, SkCanvas::kBW_EdgeType);
+        bool result = getHardClipBounds(canvas, &r);
 
         if (!result) {
             r.setEmpty();
         }
         r.round(&ir);
+
         (void)GraphicsJNI::irect_to_jrect(ir, env, bounds);
         return result;
     }
@@ -974,10 +1011,10 @@ static void doDrawTextDecorations(SkCanvas* canvas, jfloat x, jfloat y, jfloat l
 static JNINativeMethod gCanvasMethods[] = {
     {"finalizer", "(I)V", (void*) SkCanvasGlue::finalizer},
     {"initRaster","(I)I", (void*) SkCanvasGlue::initRaster},
+    {"copyNativeCanvasState","(II)V", (void*) SkCanvasGlue::copyCanvasState},
     {"isOpaque","()Z", (void*) SkCanvasGlue::isOpaque},
     {"getWidth","()I", (void*) SkCanvasGlue::getWidth},
     {"getHeight","()I", (void*) SkCanvasGlue::getHeight},
-    {"native_setBitmap","(II)V", (void*) SkCanvasGlue::setBitmap},
     {"save","()I", (void*) SkCanvasGlue::saveAll},
     {"save","(I)I", (void*) SkCanvasGlue::save},
     {"native_saveLayer","(ILandroid/graphics/RectF;II)I",
@@ -1009,10 +1046,10 @@ static JNINativeMethod gCanvasMethods[] = {
     {"native_getClipBounds","(ILandroid/graphics/Rect;)Z",
         (void*) SkCanvasGlue::getClipBounds},
     {"native_getCTM", "(II)V", (void*)SkCanvasGlue::getCTM},
-    {"native_quickReject","(ILandroid/graphics/RectF;I)Z",
-        (void*) SkCanvasGlue::quickReject__RectFI},
-    {"native_quickReject","(III)Z", (void*) SkCanvasGlue::quickReject__PathI},
-    {"native_quickReject","(IFFFFI)Z", (void*)SkCanvasGlue::quickReject__FFFFI},
+    {"native_quickReject","(ILandroid/graphics/RectF;)Z",
+        (void*) SkCanvasGlue::quickReject__RectF},
+    {"native_quickReject","(II)Z", (void*) SkCanvasGlue::quickReject__Path},
+    {"native_quickReject","(IFFFF)Z", (void*)SkCanvasGlue::quickReject__FFFF},
     {"native_drawRGB","(IIII)V", (void*) SkCanvasGlue::drawRGB},
     {"native_drawARGB","(IIIII)V", (void*) SkCanvasGlue::drawARGB},
     {"native_drawColor","(II)V", (void*) SkCanvasGlue::drawColor__I},
@@ -1086,7 +1123,7 @@ int register_android_graphics_Canvas(JNIEnv* env) {
     int result;
 
     REG(env, "android/graphics/Canvas", gCanvasMethods);
-    
+
     return result;
 }
 

@@ -91,7 +91,7 @@
     <color name="perms_dangerous_perm_color">#33b5e5</color>
     <color name="shadow">#cc222222</color>
     <color name="perms_costs_money">#ffffbb33</color>
-    
+
     <!-- For search-related UIs -->
     <color name="search_url_text_normal">#7fa87f</color>
     <color name="search_url_text_selected">@android:color/black</color>
@@ -189,6 +189,24 @@
 
     <drawable name="notification_template_icon_bg">#3333B5E5</drawable>
     <drawable name="notification_template_icon_low_bg">#0cffffff</drawable>
+
+    <!-- PAC-man Rom colors -->
+    <!-- PAC-Rom Yellow -->
+    <color name="pac_rom_yellow">#ffebee00</color>
+    <!-- PAC-Rom Red -->
+    <color name="pac_rom_red">#ffe61010</color>
+    <!-- PAC-Rom Orange -->
+    <color name="pac_rom_orange">#ffff890b</color>
+    <!-- PAC-Rom Blue -->
+    <color name="pac_rom_blue">#ff07eded</color>
+    <!-- PAC-Rom Pink -->
+    <color name="pac_rom_pink">#ffdb7fb0</color>
+    <!-- PAC-Rom AOKP Ghost -->
+    <color name="pac_aokp_ghost">#fff784ec</color>
+    <!-- PAC-Rom CM Ghost -->
+    <color name="pac_cm_ghost">#ff5997b7</color>
+    <!-- PAC-Rom PA Ghost -->
+    <color name="pac_pa_ghost">#ff9cce38</color>
 
     <!-- Keyguard colors -->
     <color name="keyguard_avatar_frame_color">#ffffffff</color>

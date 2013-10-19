@@ -18,6 +18,7 @@
 package android.graphics.drawable;
 
 import android.graphics.Insets;
+import android.os.Trace;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -147,6 +148,10 @@ public abstract class Drawable {
 
         if (oldBounds.left != left || oldBounds.top != top ||
                 oldBounds.right != right || oldBounds.bottom != bottom) {
+            if (!oldBounds.isEmpty()) {
+                // first invalidate the previous bounds
+                invalidateSelf();
+            }
             mBounds.set(left, top, right, bottom);
             onBoundsChange(mBounds);
         }
@@ -197,7 +202,7 @@ public abstract class Drawable {
      *         stored bounds of this drawable.
      *
      * @see #copyBounds()
-     * @see #copyBounds(android.graphics.Rect) 
+     * @see #copyBounds(android.graphics.Rect)
      */
     public final Rect getBounds() {
         if (mBounds == ZERO_BOUNDS_RECT) {
@@ -302,8 +307,8 @@ public abstract class Drawable {
      * that want to support animated drawables.
      *
      * @param cb The client's Callback implementation.
-     * 
-     * @see #getCallback() 
+     *
+     * @see #getCallback()
      */
     public final void setCallback(Callback cb) {
         mCallback = new WeakReference<Callback>(cb);
@@ -312,10 +317,10 @@ public abstract class Drawable {
     /**
      * Return the current {@link Callback} implementation attached to this
      * Drawable.
-     * 
+     *
      * @return A {@link Callback} instance or null if no callback was set.
-     * 
-     * @see #setCallback(android.graphics.drawable.Drawable.Callback) 
+     *
+     * @see #setCallback(android.graphics.drawable.Drawable.Callback)
      */
     public Callback getCallback() {
         if (mCallback != null) {
@@ -323,15 +328,15 @@ public abstract class Drawable {
         }
         return null;
     }
-    
+
     /**
      * Use the current {@link Callback} implementation to have this Drawable
      * redrawn.  Does nothing if there is no Callback attached to the
      * Drawable.
      *
      * @see Callback#invalidateDrawable
-     * @see #getCallback() 
-     * @see #setCallback(android.graphics.drawable.Drawable.Callback) 
+     * @see #getCallback()
+     * @see #setCallback(android.graphics.drawable.Drawable.Callback)
      */
     public void invalidateSelf() {
         final Callback callback = getCallback();
@@ -716,7 +721,7 @@ public abstract class Drawable {
      *
      * @hide
      */
-    public Insets getLayoutInsets() {
+    public Insets getOpticalInsets() {
         return Insets.NONE;
     }
 
@@ -742,7 +747,12 @@ public abstract class Drawable {
      * Create a drawable from an inputstream
      */
     public static Drawable createFromStream(InputStream is, String srcName) {
-        return createFromResourceStream(null, null, is, srcName, null);
+        Trace.traceBegin(Trace.TRACE_TAG_RESOURCES, srcName != null ? srcName : "Unknown drawable");
+        try {
+            return createFromResourceStream(null, null, is, srcName, null);
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_RESOURCES);
+        }
     }
 
     /**
@@ -751,7 +761,12 @@ public abstract class Drawable {
      */
     public static Drawable createFromResourceStream(Resources res, TypedValue value,
             InputStream is, String srcName) {
-        return createFromResourceStream(res, value, is, srcName, null);
+        Trace.traceBegin(Trace.TRACE_TAG_RESOURCES, srcName != null ? srcName : "Unknown drawable");
+        try {
+            return createFromResourceStream(res, value, is, srcName, null);
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_RESOURCES);
+        }
     }
 
     /**
@@ -772,7 +787,7 @@ public abstract class Drawable {
             Rects only to drop them on the floor.
         */
         Rect pad = new Rect();
-        
+
         // Special stuff for compatibility mode: if the target density is not
         // the same as the display density, but the resource -is- the same as
         // the display density, then don't scale it down to the target density.
@@ -863,12 +878,13 @@ public abstract class Drawable {
         } else if (name.equals("rotate")) {
             drawable = new RotateDrawable();
         } else if (name.equals("animated-rotate")) {
-            drawable = new AnimatedRotateDrawable();            
+            drawable = new AnimatedRotateDrawable();
         } else if (name.equals("animation-list")) {
             drawable = new AnimationDrawable();
         } else if (name.equals("inset")) {
             drawable = new InsetDrawable();
         } else if (name.equals("bitmap")) {
+            //noinspection deprecation
             drawable = new BitmapDrawable(r);
             if (r != null) {
                ((BitmapDrawable) drawable).setTargetDensity(r.getDisplayMetrics());
@@ -896,9 +912,14 @@ public abstract class Drawable {
             return null;
         }
 
-        Bitmap bm = BitmapFactory.decodeFile(pathName);
-        if (bm != null) {
-            return drawableFromBitmap(null, bm, null, null, null, pathName);
+        Trace.traceBegin(Trace.TRACE_TAG_RESOURCES, pathName);
+        try {
+            Bitmap bm = BitmapFactory.decodeFile(pathName);
+            if (bm != null) {
+                return drawableFromBitmap(null, bm, null, null, null, pathName);
+            }
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_RESOURCES);
         }
 
         return null;

@@ -76,18 +76,6 @@ class ZygoteConnection {
     private final String peerSecurityContext;
 
     /**
-     * A long-lived reference to the original command socket used to launch
-     * this peer. If "peer wait" mode is specified, the process that requested
-     * the new VM instance intends to track the lifetime of the spawned instance
-     * via the command socket. In this case, the command socket is closed
-     * in the Zygote and placed here in the spawned instance so that it will
-     * not be collected and finalized. This field remains null at all times
-     * in the original Zygote process, and in all spawned processes where
-     * "peer-wait" mode was not requested.
-     */
-    private static LocalSocket sPeerWaitSocket = null;
-
-    /**
      * Constructs instance from connected socket.
      *
      * @param socket non-null; connected socket
@@ -103,7 +91,7 @@ class ZygoteConnection {
                 new InputStreamReader(socket.getInputStream()), 256);
 
         mSocket.setSoTimeout(CONNECTION_TIMEOUT_MILLIS);
-                
+
         try {
             peer = mSocket.getPeerCredentials();
         } catch (IOException ex) {
@@ -298,11 +286,6 @@ class ZygoteConnection {
      *   <li> --rlimit=r,c,m<i>tuple of values for setrlimit() call.
      *    <code>r</code> is the resource, <code>c</code> and <code>m</code>
      *    are the settings for current and max value.</i>
-     *   <li> --peer-wait indicates that the command socket should
-     * be inherited by (and set to close-on-exec in) the spawned process
-     * and used to track the lifetime of that process. The spawning process
-     * then exits. Without this flag, it is retained by the spawning process
-     * (and closed in the child) in expectation of a new spawn request.
      *   <li> --classpath=<i>colon-separated classpath</i> indicates
      * that the specified class (which must b first non-flag argument) should
      * be loaded from jar files in the specified classpath. Incompatible with
@@ -329,9 +312,6 @@ class ZygoteConnection {
 
         /** from --setgroups */
         int[] gids;
-
-        /** from --peer-wait */
-        boolean peerWait;
 
         /**
          * From --enable-debugger, --enable-checkjni, --enable-assert,
@@ -437,8 +417,6 @@ class ZygoteConnection {
                     debugFlags |= Zygote.DEBUG_ENABLE_JNI_LOGGING;
                 } else if (arg.equals("--enable-assert")) {
                     debugFlags |= Zygote.DEBUG_ENABLE_ASSERT;
-                } else if (arg.equals("--peer-wait")) {
-                    peerWait = true;
                 } else if (arg.equals("--runtime-init")) {
                     runtimeInit = true;
                 } else if (arg.startsWith("--seinfo=")) {
@@ -582,7 +560,7 @@ class ZygoteConnection {
         }
 
         // See bug 1092107: large argc can be used for a DOS attack
-        if (argc > MAX_ZYGOTE_ARGC) {   
+        if (argc > MAX_ZYGOTE_ARGC) {
             throw new IOException("max arg count exceeded");
         }
 
@@ -599,7 +577,7 @@ class ZygoteConnection {
     }
 
     /**
-     * Applies zygote security policy per bugs #875058 and #1082165. 
+     * Applies zygote security policy per bugs #875058 and #1082165.
      * Based on the credentials of the process issuing a zygote command:
      * <ol>
      * <li> uid 0 (root) may specify any uid, gid, and setgroups() list
@@ -630,7 +608,7 @@ class ZygoteConnection {
             /* In normal operation, SYSTEM_UID can only specify a restricted
              * set of UIDs. In factory test mode, SYSTEM_UID may specify any uid.
              */
-            uidRestricted  
+            uidRestricted
                  = !(factoryTest.equals("1") || factoryTest.equals("2"));
 
             if (uidRestricted
@@ -825,7 +803,7 @@ class ZygoteConnection {
     }
 
     /**
-     * Applies zygote security policy for SEAndroid information.
+     * Applies zygote security policy for SELinux information.
      *
      * @param args non-null; zygote spawner arguments
      * @param peer non-null; peer credentials
@@ -844,7 +822,7 @@ class ZygoteConnection {
         if (!(peerUid == 0 || peerUid == Process.SYSTEM_UID)) {
             // All peers with UID other than root or SYSTEM_UID
             throw new ZygoteSecurityException(
-                    "This UID may not specify SEAndroid info.");
+                    "This UID may not specify SELinux info.");
         }
 
         boolean allowed = SELinux.checkSELinuxAccess(peerSecurityContext,
@@ -853,7 +831,7 @@ class ZygoteConnection {
                                                      "specifyseinfo");
         if (!allowed) {
             throw new ZygoteSecurityException(
-                    "Peer may not specify SEAndroid info");
+                    "Peer may not specify SELinux info");
         }
 
         return;
@@ -897,23 +875,8 @@ class ZygoteConnection {
             FileDescriptor[] descriptors, FileDescriptor pipeFd, PrintStream newStderr)
             throws ZygoteInit.MethodAndArgsCaller {
 
-        /*
-         * Close the socket, unless we're in "peer wait" mode, in which
-         * case it's used to track the liveness of this process.
-         */
-
-        if (parsedArgs.peerWait) {
-            try {
-                ZygoteInit.setCloseOnExec(mSocket.getFileDescriptor(), true);
-                sPeerWaitSocket = mSocket;
-            } catch (IOException ex) {
-                Log.e(TAG, "Zygote Child: error setting peer wait "
-                        + "socket to be close-on-exec", ex);
-            }
-        } else {
-            closeSocket();
-            ZygoteInit.closeServerSocket();
-        }
+        closeSocket();
+        ZygoteInit.closeServerSocket();
 
         if (descriptors != null) {
             try {
@@ -1004,16 +967,18 @@ class ZygoteConnection {
 
         boolean usingWrapper = false;
         if (pipeFd != null && pid > 0) {
-            DataInputStream is = new DataInputStream(new FileInputStream(pipeFd));
+            DataInputStream is = null;
             int innerPid = -1;
             try {
+                is = new DataInputStream(new FileInputStream(pipeFd));
                 innerPid = is.readInt();
             } catch (IOException ex) {
                 Log.w(TAG, "Error reading pid from wrapped process, child may have died", ex);
             } finally {
-                try {
-                    is.close();
-                } catch (IOException ex) {
+                if (is != null) {
+                    try {
+                        is.close();
+                    } catch (IOException ex) {}
                 }
             }
 
@@ -1044,18 +1009,6 @@ class ZygoteConnection {
             return true;
         }
 
-        /*
-         * If the peer wants to use the socket to wait on the
-         * newly spawned process, then we're all done.
-         */
-        if (parsedArgs.peerWait) {
-            try {
-                mSocket.close();
-            } catch (IOException ex) {
-                Log.e(TAG, "Zygote: error closing sockets", ex);
-            }
-            return true;
-        }
         return false;
     }
 

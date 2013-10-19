@@ -112,7 +112,7 @@ class LocalSocketImpl
         public void write (byte[] b) throws IOException {
             write(b, 0, b.length);
         }
-        
+
         /** {@inheritDoc} */
         @Override
         public void write (byte[] b, int off, int len) throws IOException {
@@ -136,8 +136,28 @@ class LocalSocketImpl
                 write_native(b, myFd);
             }
         }
+
+        /**
+         * Wait until the data in sending queue is emptied. A polling version
+         * for flush implementation.
+         * @throws IOException
+         *             if an i/o error occurs.
+         */
+        @Override
+        public void flush() throws IOException {
+            FileDescriptor myFd = fd;
+            if (myFd == null) throw new IOException("socket closed");
+            while(pending_native(myFd) > 0) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException ie) {
+                    return;
+                }
+            }
+        }
     }
 
+    private native int pending_native(FileDescriptor fd) throws IOException;
     private native int available_native(FileDescriptor fd) throws IOException;
     private native void close_native(FileDescriptor fd) throws IOException;
     private native int read_native(FileDescriptor fd) throws IOException;
@@ -230,7 +250,7 @@ class LocalSocketImpl
     /** note timeout presently ignored */
     protected void connect(LocalSocketAddress address, int timeout)
                         throws IOException
-    {        
+    {
         if (fd == null) {
             throw new IOException("socket not created");
         }
@@ -307,7 +327,7 @@ class LocalSocketImpl
      * @throws IOException if socket has been closed or cannot be created.
      */
     protected OutputStream getOutputStream() throws IOException
-    { 
+    {
         if (fd == null) {
             throw new IOException("socket not created");
         }
@@ -384,7 +404,7 @@ class LocalSocketImpl
         if (optID == SocketOptions.SO_TIMEOUT) {
             return 0;
         }
-        
+
         int value = getOption_native(fd, optID);
         switch (optID)
         {

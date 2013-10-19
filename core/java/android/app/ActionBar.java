@@ -64,14 +64,14 @@ public abstract class ActionBar {
      * a MenuItem with item ID android.R.id.home.
      */
     public static final int NAVIGATION_MODE_STANDARD = 0;
-    
+
     /**
      * List navigation mode. Instead of static title text this mode
      * presents a list menu for navigation within the activity.
      * e.g. this might be presented to the user as a dropdown list.
      */
     public static final int NAVIGATION_MODE_LIST = 1;
-    
+
     /**
      * Tab navigation mode. Instead of static title text this mode
      * presents a series of tabs for navigation within the activity.
@@ -86,7 +86,7 @@ public abstract class ActionBar {
      * @see #setDisplayOptions(int, int)
      */
     public static final int DISPLAY_USE_LOGO = 0x1;
-    
+
     /**
      * Show 'home' elements in this action bar, leaving more space for other
      * navigation elements. This includes logo and icon.
@@ -154,7 +154,7 @@ public abstract class ActionBar {
     /**
      * Set the action bar into custom navigation mode, supplying a view
      * for custom navigation.
-     * 
+     *
      * <p>Custom navigation views appear between the application icon and
      * any action buttons and may use any space available there. Common
      * use cases for custom navigation views might include an auto-suggesting
@@ -163,7 +163,7 @@ public abstract class ActionBar {
      *
      * <p>The display option {@link #DISPLAY_SHOW_CUSTOM} must be set for
      * the custom view to be displayed.</p>
-     * 
+     *
      * @param view Custom navigation view to place in the ActionBar.
      * @param layoutParams How this custom view should layout in the bar.
      *
@@ -337,21 +337,21 @@ public abstract class ActionBar {
     /**
      * Set display options. This changes all display option bits at once. To change
      * a limited subset of display options, see {@link #setDisplayOptions(int, int)}.
-     * 
+     *
      * @param options A combination of the bits defined by the DISPLAY_ constants
      *                defined in ActionBar.
      */
     public abstract void setDisplayOptions(int options);
-    
+
     /**
      * Set selected display options. Only the options specified by mask will be changed.
      * To change all display option bits at once, see {@link #setDisplayOptions(int)}.
-     * 
+     *
      * <p>Example: setDisplayOptions(0, DISPLAY_SHOW_HOME) will disable the
      * {@link #DISPLAY_SHOW_HOME} option.
      * setDisplayOptions(DISPLAY_SHOW_HOME, DISPLAY_SHOW_HOME | DISPLAY_USE_LOGO)
      * will enable {@link #DISPLAY_SHOW_HOME} and disable {@link #DISPLAY_USE_LOGO}.
-     * 
+     *
      * @param options A combination of the bits defined by the DISPLAY_ constants
      *                defined in ActionBar.
      * @param mask A bit mask declaring which display options should be changed.
@@ -426,7 +426,7 @@ public abstract class ActionBar {
     /**
      * Set the ActionBar's background. This will be used for the primary
      * action bar.
-     * 
+     *
      * @param d Background drawable
      * @see #setStackedBackgroundDrawable(Drawable)
      * @see #setSplitBackgroundDrawable(Drawable)
@@ -459,21 +459,21 @@ public abstract class ActionBar {
     /**
      * Returns the current ActionBar title in standard mode.
      * Returns null if {@link #getNavigationMode()} would not return
-     * {@link #NAVIGATION_MODE_STANDARD}. 
+     * {@link #NAVIGATION_MODE_STANDARD}.
      *
      * @return The current ActionBar title or null.
      */
     public abstract CharSequence getTitle();
-    
+
     /**
      * Returns the current ActionBar subtitle in standard mode.
      * Returns null if {@link #getNavigationMode()} would not return
-     * {@link #NAVIGATION_MODE_STANDARD}. 
+     * {@link #NAVIGATION_MODE_STANDARD}.
      *
      * @return The current ActionBar subtitle or null.
      */
     public abstract CharSequence getSubtitle();
-    
+
     /**
      * Returns the current navigation mode. The result will be one of:
      * <ul>
@@ -497,7 +497,7 @@ public abstract class ActionBar {
     public abstract void setNavigationMode(int mode);
 
     /**
-     * @return The current set of display options. 
+     * @return The current set of display options.
      */
     public abstract int getDisplayOptions();
 
@@ -695,13 +695,93 @@ public abstract class ActionBar {
     public boolean isTitleTruncated() { return false; }
 
     /**
+     * Set an alternate drawable to display next to the icon/logo/title
+     * when {@link #DISPLAY_HOME_AS_UP} is enabled. This can be useful if you are using
+     * this mode to display an alternate selection for up navigation, such as a sliding drawer.
+     *
+     * <p>If you pass <code>null</code> to this method, the default drawable from the theme
+     * will be used.</p>
+     *
+     * <p>If you implement alternate or intermediate behavior around Up, you should also
+     * call {@link #setHomeActionContentDescription(int) setHomeActionContentDescription()}
+     * to provide a correct description of the action for accessibility support.</p>
+     *
+     * @param indicator A drawable to use for the up indicator, or null to use the theme's default
+     *
+     * @see #setDisplayOptions(int, int)
+     * @see #setDisplayHomeAsUpEnabled(boolean)
+     * @see #setHomeActionContentDescription(int)
+     */
+    public void setHomeAsUpIndicator(Drawable indicator) { }
+
+    /**
+     * Set an alternate drawable to display next to the icon/logo/title
+     * when {@link #DISPLAY_HOME_AS_UP} is enabled. This can be useful if you are using
+     * this mode to display an alternate selection for up navigation, such as a sliding drawer.
+     *
+     * <p>If you pass <code>0</code> to this method, the default drawable from the theme
+     * will be used.</p>
+     *
+     * <p>If you implement alternate or intermediate behavior around Up, you should also
+     * call {@link #setHomeActionContentDescription(int) setHomeActionContentDescription()}
+     * to provide a correct description of the action for accessibility support.</p>
+     *
+     * @param resId Resource ID of a drawable to use for the up indicator, or null
+     *              to use the theme's default
+     *
+     * @see #setDisplayOptions(int, int)
+     * @see #setDisplayHomeAsUpEnabled(boolean)
+     * @see #setHomeActionContentDescription(int)
+     */
+    public void setHomeAsUpIndicator(int resId) { }
+
+    /**
+     * Set an alternate description for the Home/Up action, when enabled.
+     *
+     * <p>This description is commonly used for accessibility/screen readers when
+     * the Home action is enabled. (See {@link #setDisplayHomeAsUpEnabled(boolean)}.)
+     * Examples of this are, "Navigate Home" or "Navigate Up" depending on the
+     * {@link #DISPLAY_HOME_AS_UP} display option. If you have changed the home-as-up
+     * indicator using {@link #setHomeAsUpIndicator(int)} to indicate more specific
+     * functionality such as a sliding drawer, you should also set this to accurately
+     * describe the action.</p>
+     *
+     * <p>Setting this to <code>null</code> will use the system default description.</p>
+     *
+     * @param description New description for the Home action when enabled
+     * @see #setHomeAsUpIndicator(int)
+     * @see #setHomeAsUpIndicator(android.graphics.drawable.Drawable)
+     */
+    public void setHomeActionContentDescription(CharSequence description) { }
+
+    /**
+     * Set an alternate description for the Home/Up action, when enabled.
+     *
+     * <p>This description is commonly used for accessibility/screen readers when
+     * the Home action is enabled. (See {@link #setDisplayHomeAsUpEnabled(boolean)}.)
+     * Examples of this are, "Navigate Home" or "Navigate Up" depending on the
+     * {@link #DISPLAY_HOME_AS_UP} display option. If you have changed the home-as-up
+     * indicator using {@link #setHomeAsUpIndicator(int)} to indicate more specific
+     * functionality such as a sliding drawer, you should also set this to accurately
+     * describe the action.</p>
+     *
+     * <p>Setting this to <code>0</code> will use the system default description.</p>
+     *
+     * @param resId Resource ID of a string to use as the new description
+     *              for the Home action when enabled
+     * @see #setHomeAsUpIndicator(int)
+     * @see #setHomeAsUpIndicator(android.graphics.drawable.Drawable)
+     */
+    public void setHomeActionContentDescription(int resId) { }
+
+    /**
      * Listener interface for ActionBar navigation events.
      */
     public interface OnNavigationListener {
         /**
          * This method is called whenever a navigation item in your action bar
          * is selected.
-         *    
+         *
          * @param itemPosition Position of the item clicked.
          * @param itemId ID of the item clicked.
          * @return True if the event was handled, false otherwise.

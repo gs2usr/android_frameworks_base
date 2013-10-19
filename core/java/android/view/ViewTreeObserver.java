@@ -33,6 +33,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class ViewTreeObserver {
     // Recursive listeners use CopyOnWriteArrayList
+    private CopyOnWriteArrayList<OnWindowFocusChangeListener> mOnWindowFocusListeners;
+    private CopyOnWriteArrayList<OnWindowAttachListener> mOnWindowAttachListeners;
     private CopyOnWriteArrayList<OnGlobalFocusChangeListener> mOnGlobalFocusListeners;
     private CopyOnWriteArrayList<OnTouchModeChangeListener> mOnTouchModeChangeListeners;
 
@@ -47,6 +49,36 @@ public final class ViewTreeObserver {
     private ArrayList<OnDrawListener> mOnDrawListeners;
 
     private boolean mAlive = true;
+
+    /**
+     * Interface definition for a callback to be invoked when the view hierarchy is
+     * attached to and detached from its window.
+     */
+    public interface OnWindowAttachListener {
+        /**
+         * Callback method to be invoked when the view hierarchy is attached to a window
+         */
+        public void onWindowAttached();
+
+        /**
+         * Callback method to be invoked when the view hierarchy is detached from a window
+         */
+        public void onWindowDetached();
+    }
+
+    /**
+     * Interface definition for a callback to be invoked when the view hierarchy's window
+     * focus state changes.
+     */
+    public interface OnWindowFocusChangeListener {
+        /**
+         * Callback method to be invoked when the window focus changes in the view tree.
+         *
+         * @param hasFocus Set to true if the window is gaining focus, false if it is
+         * losing focus.
+         */
+        public void onWindowFocusChanged(boolean hasFocus);
+    }
 
     /**
      * Interface definition for a callback to be invoked when the focus state within
@@ -103,10 +135,10 @@ public final class ViewTreeObserver {
         /**
          * <p>Callback method to be invoked when the view tree is about to be drawn. At this point,
          * views cannot be modified in any way.</p>
-         * 
+         *
          * <p>Unlike with {@link OnPreDrawListener}, this method cannot be used to cancel the
          * current drawing pass.</p>
-         * 
+         *
          * <p>An {@link OnDrawListener} listener <strong>cannot be added or removed</strong>
          * from this method.</p>
          *
@@ -143,7 +175,7 @@ public final class ViewTreeObserver {
 
     /**
      * Parameters used with OnComputeInternalInsetsListener.
-     * 
+     *
      * We are not yet ready to commit to this API and support it, so
      * @hide
      */
@@ -241,7 +273,7 @@ public final class ViewTreeObserver {
     /**
      * Interface definition for a callback to be invoked when layout has
      * completed and the client can compute its interior insets.
-     * 
+     *
      * We are not yet ready to commit to this API and support it, so
      * @hide
      */
@@ -272,6 +304,22 @@ public final class ViewTreeObserver {
      * @param observer The ViewTreeObserver whose listeners must be added to this observer
      */
     void merge(ViewTreeObserver observer) {
+        if (observer.mOnWindowAttachListeners != null) {
+            if (mOnWindowAttachListeners != null) {
+                mOnWindowAttachListeners.addAll(observer.mOnWindowAttachListeners);
+            } else {
+                mOnWindowAttachListeners = observer.mOnWindowAttachListeners;
+            }
+        }
+
+        if (observer.mOnWindowFocusListeners != null) {
+            if (mOnWindowFocusListeners != null) {
+                mOnWindowFocusListeners.addAll(observer.mOnWindowFocusListeners);
+            } else {
+                mOnWindowFocusListeners = observer.mOnWindowFocusListeners;
+            }
+        }
+
         if (observer.mOnGlobalFocusListeners != null) {
             if (mOnGlobalFocusListeners != null) {
                 mOnGlobalFocusListeners.addAll(observer.mOnGlobalFocusListeners);
@@ -321,6 +369,76 @@ public final class ViewTreeObserver {
         }
 
         observer.kill();
+    }
+
+    /**
+     * Register a callback to be invoked when the view hierarchy is attached to a window.
+     *
+     * @param listener The callback to add
+     *
+     * @throws IllegalStateException If {@link #isAlive()} returns false
+     */
+    public void addOnWindowAttachListener(OnWindowAttachListener listener) {
+        checkIsAlive();
+
+        if (mOnWindowAttachListeners == null) {
+            mOnWindowAttachListeners
+                    = new CopyOnWriteArrayList<OnWindowAttachListener>();
+        }
+
+        mOnWindowAttachListeners.add(listener);
+    }
+
+    /**
+     * Remove a previously installed window attach callback.
+     *
+     * @param victim The callback to remove
+     *
+     * @throws IllegalStateException If {@link #isAlive()} returns false
+     *
+     * @see #addOnWindowAttachListener(android.view.ViewTreeObserver.OnWindowAttachListener)
+     */
+    public void removeOnWindowAttachListener(OnWindowAttachListener victim) {
+        checkIsAlive();
+        if (mOnWindowAttachListeners == null) {
+            return;
+        }
+        mOnWindowAttachListeners.remove(victim);
+    }
+
+    /**
+     * Register a callback to be invoked when the window focus state within the view tree changes.
+     *
+     * @param listener The callback to add
+     *
+     * @throws IllegalStateException If {@link #isAlive()} returns false
+     */
+    public void addOnWindowFocusChangeListener(OnWindowFocusChangeListener listener) {
+        checkIsAlive();
+
+        if (mOnWindowFocusListeners == null) {
+            mOnWindowFocusListeners
+                    = new CopyOnWriteArrayList<OnWindowFocusChangeListener>();
+        }
+
+        mOnWindowFocusListeners.add(listener);
+    }
+
+    /**
+     * Remove a previously installed window focus change callback.
+     *
+     * @param victim The callback to remove
+     *
+     * @throws IllegalStateException If {@link #isAlive()} returns false
+     *
+     * @see #addOnWindowFocusChangeListener(android.view.ViewTreeObserver.OnWindowFocusChangeListener)
+     */
+    public void removeOnWindowFocusChangeListener(OnWindowFocusChangeListener victim) {
+        checkIsAlive();
+        if (mOnWindowFocusListeners == null) {
+            return;
+        }
+        mOnWindowFocusListeners.remove(victim);
     }
 
     /**
@@ -381,7 +499,7 @@ public final class ViewTreeObserver {
      * @param victim The callback to remove
      *
      * @throws IllegalStateException If {@link #isAlive()} returns false
-     * 
+     *
      * @deprecated Use #removeOnGlobalLayoutListener instead
      *
      * @see #addOnGlobalLayoutListener(OnGlobalLayoutListener)
@@ -397,7 +515,7 @@ public final class ViewTreeObserver {
      * @param victim The callback to remove
      *
      * @throws IllegalStateException If {@link #isAlive()} returns false
-     * 
+     *
      * @see #addOnGlobalLayoutListener(OnGlobalLayoutListener)
      */
     public void removeOnGlobalLayoutListener(OnGlobalLayoutListener victim) {
@@ -555,7 +673,7 @@ public final class ViewTreeObserver {
      * @param listener The callback to add
      *
      * @throws IllegalStateException If {@link #isAlive()} returns false
-     * 
+     *
      * We are not yet ready to commit to this API and support it, so
      * @hide
      */
@@ -578,7 +696,7 @@ public final class ViewTreeObserver {
      * @throws IllegalStateException If {@link #isAlive()} returns false
      *
      * @see #addOnComputeInternalInsetsListener(OnComputeInternalInsetsListener)
-     * 
+     *
      * We are not yet ready to commit to this API and support it, so
      * @hide
      */
@@ -618,6 +736,41 @@ public final class ViewTreeObserver {
      */
     private void kill() {
         mAlive = false;
+    }
+
+    /**
+     * Notifies registered listeners that window has been attached/detached.
+     */
+    final void dispatchOnWindowAttachedChange(boolean attached) {
+        // NOTE: because of the use of CopyOnWriteArrayList, we *must* use an iterator to
+        // perform the dispatching. The iterator is a safe guard against listeners that
+        // could mutate the list by calling the various add/remove methods. This prevents
+        // the array from being modified while we iterate it.
+        final CopyOnWriteArrayList<OnWindowAttachListener> listeners
+                = mOnWindowAttachListeners;
+        if (listeners != null && listeners.size() > 0) {
+            for (OnWindowAttachListener listener : listeners) {
+                if (attached) listener.onWindowAttached();
+                else listener.onWindowDetached();
+            }
+        }
+    }
+
+    /**
+     * Notifies registered listeners that window focus has changed.
+     */
+    final void dispatchOnWindowFocusChange(boolean hasFocus) {
+        // NOTE: because of the use of CopyOnWriteArrayList, we *must* use an iterator to
+        // perform the dispatching. The iterator is a safe guard against listeners that
+        // could mutate the list by calling the various add/remove methods. This prevents
+        // the array from being modified while we iterate it.
+        final CopyOnWriteArrayList<OnWindowFocusChangeListener> listeners
+                = mOnWindowFocusListeners;
+        if (listeners != null && listeners.size() > 0) {
+            for (OnWindowFocusChangeListener listener : listeners) {
+                listener.onWindowFocusChanged(hasFocus);
+            }
+        }
     }
 
     /**
@@ -772,9 +925,9 @@ public final class ViewTreeObserver {
      * Copy on write array. This array is not thread safe, and only one loop can
      * iterate over this array at any given time. This class avoids allocations
      * until a concurrent modification happens.
-     * 
+     *
      * Usage:
-     * 
+     *
      * CopyOnWriteArray.Access<MyData> access = array.start();
      * try {
      *     for (int i = 0; i < access.size(); i++) {
@@ -839,7 +992,9 @@ public final class ViewTreeObserver {
         }
 
         void add(T item) {
-            getArray().add(item);
+            if (!getArray().contains(item)) {
+                getArray().add(item);
+            }
         }
 
         void addAll(CopyOnWriteArray<T> array) {

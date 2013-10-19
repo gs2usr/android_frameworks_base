@@ -64,7 +64,7 @@ import java.util.Map;
  * <p>
  * The services are referred to by type V and are made available via the
  * {@link #getServiceInfo} method.
- * 
+ *
  * @hide
  */
 public abstract class RegisteredServicesCache<V> {
@@ -200,7 +200,7 @@ public abstract class RegisteredServicesCache<V> {
             Log.d(TAG, "notifyListener: " + type + " is " + (removed ? "removed" : "added"));
         }
         RegisteredServicesCacheListener<V> listener;
-        Handler handler; 
+        Handler handler;
         synchronized (this) {
             listener = mListener;
             handler = mHandler;
@@ -208,7 +208,7 @@ public abstract class RegisteredServicesCache<V> {
         if (listener == null) {
             return;
         }
-        
+
         final RegisteredServicesCacheListener<V> listener2 = listener;
         handler.post(new Runnable() {
             public void run() {
@@ -488,7 +488,8 @@ public abstract class RegisteredServicesCache<V> {
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(fis, null);
             int eventType = parser.getEventType();
-            while (eventType != XmlPullParser.START_TAG) {
+            while (eventType != XmlPullParser.START_TAG
+                    && eventType != XmlPullParser.END_DOCUMENT) {
                 eventType = parser.next();
             }
             String tagName = parser.getName();

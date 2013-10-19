@@ -18,8 +18,15 @@ package android.graphics;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.Pools.SynchronizedPool;
 
 public class Region implements Parcelable {
+
+    private static final int MAX_POOL_SIZE = 10;
+
+    private static final SynchronizedPool<Region> sPool =
+            new SynchronizedPool<Region>(MAX_POOL_SIZE);
+
     /**
      * @hide
      */
@@ -80,7 +87,8 @@ public class Region implements Parcelable {
     /** Set the region to the specified region.
     */
     public boolean set(Region region) {
-        return nativeSetRegion(mNativeRegion, region.mNativeRegion);
+        nativeSetRegion(mNativeRegion, region.mNativeRegion);
+        return true;
     }
 
     /** Set the region to the specified rectangle
@@ -88,7 +96,7 @@ public class Region implements Parcelable {
     public boolean set(Rect r) {
         return nativeSetRect(mNativeRegion, r.left, r.top, r.right, r.bottom);
     }
-    
+
     /** Set the region to the specified rectangle
     */
     public boolean set(int left, int top, int right, int bottom) {
@@ -109,12 +117,12 @@ public class Region implements Parcelable {
      * Return true if this region is empty
      */
     public native boolean isEmpty();
-    
+
     /**
      * Return true if the region contains a single rectangle
      */
     public native boolean isRect();
-    
+
     /**
      * Return true if the region contains more than one rectangle
      */
@@ -129,7 +137,7 @@ public class Region implements Parcelable {
         nativeGetBounds(mNativeRegion, r);
         return r;
     }
-    
+
     /**
      * Set the Rect to the bounds of the region. If the region is empty, the
      * Rect will be set to [0, 0, 0, 0]
@@ -158,7 +166,7 @@ public class Region implements Parcelable {
     public boolean getBoundaryPath(Path path) {
         return nativeGetBoundaryPath(mNativeRegion, path.ni());
     }
-        
+
     /**
      * Return true if the region contains the specified point
      */
@@ -221,7 +229,7 @@ public class Region implements Parcelable {
 
     /**
      * Scale the region by the given scale amount. This re-constructs new region by
-     * scaling the rects that this region consists of. New rectis are computed by scaling 
+     * scaling the rects that this region consists of. New rectis are computed by scaling
      * coordinates by float, then rounded by roundf() function to integers. This may results
      * in less internal rects if 0 < scale < 1. Zero and Negative scale result in
      * an empty region. If this region is empty, do nothing.
@@ -291,8 +299,41 @@ public class Region implements Parcelable {
         return nativeToString(mNativeRegion);
     }
 
+    /**
+     * @return An instance from a pool if such or a new one.
+     *
+     * @hide
+     */
+    public static Region obtain() {
+        Region region = sPool.acquire();
+        return (region != null) ? region : new Region();
+    }
+
+    /**
+     * @return An instance from a pool if such or a new one.
+     *
+     * @param other Region to copy values from for initialization.
+     *
+     * @hide
+     */
+    public static Region obtain(Region other) {
+        Region region = obtain();
+        region.set(other);
+        return region;
+    }
+
+    /**
+     * Recycles an instance.
+     *
+     * @hide
+     */
+    public void recycle() {
+        setEmpty();
+        sPool.release(this);
+    }
+
     //////////////////////////////////////////////////////////////////////////
-    
+
     public static final Parcelable.Creator<Region> CREATOR
         = new Parcelable.Creator<Region>() {
             /**
@@ -311,7 +352,7 @@ public class Region implements Parcelable {
                 return new Region[size];
             }
     };
-    
+
     public int describeContents() {
         return 0;
     }
@@ -343,7 +384,7 @@ public class Region implements Parcelable {
             super.finalize();
         }
     }
-    
+
     Region(int ni) {
         if (ni == 0) {
             throw new RuntimeException();
@@ -366,8 +407,7 @@ public class Region implements Parcelable {
     private static native int nativeConstructor();
     private static native void nativeDestructor(int native_region);
 
-    private static native boolean nativeSetRegion(int native_dst,
-                                                  int native_src);
+    private static native void nativeSetRegion(int native_dst, int native_src);
     private static native boolean nativeSetRect(int native_dst, int left,
                                                 int top, int right, int bottom);
     private static native boolean nativeSetPath(int native_dst, int native_path,

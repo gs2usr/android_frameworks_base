@@ -19,6 +19,7 @@ package android.net;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Messenger;
 import android.util.Slog;
 
 /**
@@ -119,7 +120,13 @@ public class DummyDataStateTracker implements NetworkStateTracker {
         return true;
     }
 
+    @Override
     public void captivePortalCheckComplete() {
+        // not implemented
+    }
+
+    @Override
+    public void captivePortalCheckCompleted(boolean isCaptivePortal) {
         // not implemented
     }
 
@@ -200,6 +207,21 @@ public class DummyDataStateTracker implements NetworkStateTracker {
     }
 
     public void setDependencyMet(boolean met) {
+        // not supported on this network
+    }
+
+    @Override
+    public void addStackedLink(LinkProperties link) {
+        mLinkProperties.addStackedLink(link);
+    }
+
+    @Override
+    public void removeStackedLink(LinkProperties link) {
+        mLinkProperties.removeStackedLink(link);
+    }
+
+    @Override
+    public void supplyMessenger(Messenger messenger) {
         // not supported on this network
     }
 

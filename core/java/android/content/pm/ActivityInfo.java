@@ -34,7 +34,7 @@ public class ActivityInfo extends ComponentInfo
      * activity's theme.  From the "theme" attribute or, if not set, 0.
      */
     public int theme;
-    
+
     /**
      * Constant corresponding to <code>standard</code> in
      * the {@link android.R.attr#launchMode} attribute.
@@ -59,17 +59,17 @@ public class ActivityInfo extends ComponentInfo
      * The launch mode style requested by the activity.  From the
      * {@link android.R.attr#launchMode} attribute, one of
      * {@link #LAUNCH_MULTIPLE},
-     * {@link #LAUNCH_SINGLE_TOP}, {@link #LAUNCH_SINGLE_TASK}, or 
+     * {@link #LAUNCH_SINGLE_TOP}, {@link #LAUNCH_SINGLE_TASK}, or
      * {@link #LAUNCH_SINGLE_INSTANCE}.
      */
     public int launchMode;
-    
+
     /**
      * Optional name of a permission required to be able to access this
      * Activity.  From the "permission" attribute.
      */
     public String permission;
-    
+
     /**
      * The affinity this activity has for another task in the system.  The
      * string here is the name of the task, often the package name of the
@@ -77,13 +77,13 @@ public class ActivityInfo extends ComponentInfo
      * {@link android.R.attr#taskAffinity} attribute.
      */
     public String taskAffinity;
-    
+
     /**
      * If this is an activity alias, this is the real activity class to run
      * for it.  Otherwise, this is null.
      */
     public String targetActivity;
-    
+
     /**
      * Bit in {@link #flags} indicating whether this activity is able to
      * run in multiple processes.  If
@@ -162,7 +162,6 @@ public class ActivityInfo extends ComponentInfo
      */
     public static final int FLAG_SHOW_ON_LOCK_SCREEN = 0x0400;
     /**
-     * @hide
      * Bit in {@link #flags} corresponding to an immersive activity
      * that wishes not to be interrupted by notifications.
      * Applications that hide the system notification bar with
@@ -175,7 +174,14 @@ public class ActivityInfo extends ComponentInfo
      * {@link #FLAG_IMMERSIVE} set, however, will not be interrupted; the
      * notification may be shown in some other way (such as a small floating
      * "toast" window).
-     * {@see android.app.Notification#FLAG_HIGH_PRIORITY}
+     *
+     * Note that this flag will always reflect the Activity's
+     * <code>android:immersive</code> manifest definition, even if the Activity's
+     * immersive state is changed at runtime via
+     * {@link android.app.Activity#setImmersive(boolean)}.
+     *
+     * @see android.app.Notification#FLAG_HIGH_PRIORITY
+     * @see android.app.Activity#setImmersive(boolean)
      */
     public static final int FLAG_IMMERSIVE = 0x0800;
     /**
@@ -236,7 +242,7 @@ public class ActivityInfo extends ComponentInfo
      * the {@link android.R.attr#screenOrientation} attribute.
      */
     public static final int SCREEN_ORIENTATION_SENSOR = 4;
-  
+
     /**
      * Constant corresponding to <code>nosensor</code> in
      * the {@link android.R.attr#screenOrientation} attribute.
@@ -274,10 +280,34 @@ public class ActivityInfo extends ComponentInfo
     public static final int SCREEN_ORIENTATION_FULL_SENSOR = 10;
 
     /**
+     * Constant corresponding to <code>userLandscape</code> in
+     * the {@link android.R.attr#screenOrientation} attribute.
+     */
+    public static final int SCREEN_ORIENTATION_USER_LANDSCAPE = 11;
+
+    /**
+     * Constant corresponding to <code>userPortrait</code> in
+     * the {@link android.R.attr#screenOrientation} attribute.
+     */
+    public static final int SCREEN_ORIENTATION_USER_PORTRAIT = 12;
+
+    /**
+     * Constant corresponding to <code>fullUser</code> in
+     * the {@link android.R.attr#screenOrientation} attribute.
+     */
+    public static final int SCREEN_ORIENTATION_FULL_USER = 13;
+
+    /**
+     * Constant corresponding to <code>locked</code> in
+     * the {@link android.R.attr#screenOrientation} attribute.
+     */
+    public static final int SCREEN_ORIENTATION_LOCKED = 14;
+
+    /**
      * The preferred screen orientation this activity would like to run in.
      * From the {@link android.R.attr#screenOrientation} attribute, one of
      * {@link #SCREEN_ORIENTATION_UNSPECIFIED},
-     * {@link #SCREEN_ORIENTATION_LANDSCAPE}, 
+     * {@link #SCREEN_ORIENTATION_LANDSCAPE},
      * {@link #SCREEN_ORIENTATION_PORTRAIT},
      * {@link #SCREEN_ORIENTATION_USER},
      * {@link #SCREEN_ORIENTATION_BEHIND},
@@ -287,10 +317,14 @@ public class ActivityInfo extends ComponentInfo
      * {@link #SCREEN_ORIENTATION_SENSOR_PORTRAIT},
      * {@link #SCREEN_ORIENTATION_REVERSE_LANDSCAPE},
      * {@link #SCREEN_ORIENTATION_REVERSE_PORTRAIT},
-     * {@link #SCREEN_ORIENTATION_FULL_SENSOR}.
+     * {@link #SCREEN_ORIENTATION_FULL_SENSOR},
+     * {@link #SCREEN_ORIENTATION_USER_LANDSCAPE},
+     * {@link #SCREEN_ORIENTATION_USER_PORTRAIT},
+     * {@link #SCREEN_ORIENTATION_FULL_USER},
+     * {@link #SCREEN_ORIENTATION_LOCKED},
      */
     public int screenOrientation = SCREEN_ORIENTATION_UNSPECIFIED;
-    
+
     /**
      * Bit in {@link #configChanges} that indicates that the activity
      * can itself handle changes to the IMSI MCC.  Set from the
@@ -359,6 +393,12 @@ public class ActivityInfo extends ComponentInfo
     public static final int CONFIG_UI_MODE = 0x0200;
     /**
      * Bit in {@link #configChanges} that indicates that the activity
+     * can itself handle the inverted ui mode. Set from the
+     * {@link android.R.attr#configChanges} attribute.
+     */
+    public static final int CONFIG_UI_INVERTED_MODE = 0x0300;
+    /**
+     * Bit in {@link #configChanges} that indicates that the activity
      * can itself handle the screen size. Set from the
      * {@link android.R.attr#configChanges} attribute.  This will be
      * set by default for applications that target an earlier version
@@ -397,11 +437,11 @@ public class ActivityInfo extends ComponentInfo
      * Bit in {@link #configChanges} that indicates that the activity
      * can itself handle changes to the font scaling factor.  Set from the
      * {@link android.R.attr#configChanges} attribute.  This is
-     * not a core resource configutation, but a higher-level value, so its
+     * not a core resource configuration, but a higher-level value, so its
      * constant starts at the high bits.
      */
     public static final int CONFIG_FONT_SCALE = 0x40000000;
-    
+
     /** @hide
      * Unfortunately the constants for config changes in native code are
      * different from ActivityInfo. :(  Here are the values we should use for the
@@ -417,6 +457,7 @@ public class ActivityInfo extends ComponentInfo
         0x0040, // NAVIGATION
         0x0080, // ORIENTATION
         0x0800, // SCREEN LAYOUT
+        0x8000, // UI INVERTED MODE
         0x1000, // UI MODE
         0x0200, // SCREEN SIZE
         0x2000, // SMALLEST SCREEN SIZE
@@ -463,7 +504,7 @@ public class ActivityInfo extends ComponentInfo
      * attribute.
      */
     public int configChanges;
-    
+
     /**
      * The desired soft input mode for this activity's main window.
      * Set from the {@link android.R.attr#windowSoftInputMode} attribute
@@ -512,12 +553,12 @@ public class ActivityInfo extends ComponentInfo
         uiOptions = orig.uiOptions;
         parentActivityName = orig.parentActivityName;
     }
-    
+
     /**
      * Return the theme resource identifier to use for this activity.  If
      * the activity defines a theme, that is used; else, the application
      * theme is used.
-     * 
+     *
      * @return The theme associated with this activity.
      */
     public final int getThemeResource() {
@@ -547,7 +588,7 @@ public class ActivityInfo extends ComponentInfo
         }
         super.dumpBack(pw, prefix);
     }
-    
+
     public String toString() {
         return "ActivityInfo{"
             + Integer.toHexString(System.identityHashCode(this))

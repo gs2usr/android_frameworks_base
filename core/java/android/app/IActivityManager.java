@@ -51,19 +51,19 @@ import java.util.List;
  * {@hide}
  */
 public interface IActivityManager extends IInterface {
-    public int startActivity(IApplicationThread caller,
+    public int startActivity(IApplicationThread caller, String callingPackage,
             Intent intent, String resolvedType, IBinder resultTo, String resultWho,
             int requestCode, int flags, String profileFile,
             ParcelFileDescriptor profileFd, Bundle options) throws RemoteException;
-    public int startActivityAsUser(IApplicationThread caller,
+    public int startActivityAsUser(IApplicationThread caller, String callingPackage,
             Intent intent, String resolvedType, IBinder resultTo, String resultWho,
             int requestCode, int flags, String profileFile,
             ParcelFileDescriptor profileFd, Bundle options, int userId) throws RemoteException;
-    public WaitResult startActivityAndWait(IApplicationThread caller,
+    public WaitResult startActivityAndWait(IApplicationThread caller, String callingPackage,
             Intent intent, String resolvedType, IBinder resultTo, String resultWho,
             int requestCode, int flags, String profileFile,
             ParcelFileDescriptor profileFd, Bundle options, int userId) throws RemoteException;
-    public int startActivityWithConfig(IApplicationThread caller,
+    public int startActivityWithConfig(IApplicationThread caller, String callingPackage,
             Intent intent, String resolvedType, IBinder resultTo, String resultWho,
             int requestCode, int startFlags, Configuration newConfig,
             Bundle options, int userId) throws RemoteException;
@@ -85,7 +85,7 @@ public interface IActivityManager extends IInterface {
     public int broadcastIntent(IApplicationThread caller, Intent intent,
             String resolvedType, IIntentReceiver resultTo, int resultCode,
             String resultData, Bundle map, String requiredPermission,
-            boolean serialized, boolean sticky, int userId) throws RemoteException;
+            int appOp, boolean serialized, boolean sticky, int userId) throws RemoteException;
     public void unbroadcastIntent(IApplicationThread caller, Intent intent, int userId) throws RemoteException;
     public void finishReceiver(IBinder who, int resultCode, String resultData, Bundle map, boolean abortBroadcast) throws RemoteException;
     public void attachApplication(IApplicationThread app) throws RemoteException;
@@ -98,6 +98,7 @@ public interface IActivityManager extends IInterface {
     public void activitySlept(IBinder token) throws RemoteException;
     public void activityDestroyed(IBinder token) throws RemoteException;
     public String getCallingPackage(IBinder token) throws RemoteException;
+    public String getCallingPackageForBroadcast(boolean foreground) throws RemoteException;
     public ComponentName getCallingActivity(IBinder token) throws RemoteException;
     public List getTasks(int maxNum, int flags,
                          IThumbnailReceiver receiver) throws RemoteException;
@@ -149,17 +150,17 @@ public interface IActivityManager extends IInterface {
     public void serviceDoneExecuting(IBinder token, int type, int startId,
             int res) throws RemoteException;
     public IBinder peekService(Intent service, String resolvedType) throws RemoteException;
-    
+
     public boolean bindBackupAgent(ApplicationInfo appInfo, int backupRestoreMode)
             throws RemoteException;
     public void clearPendingBackup() throws RemoteException;
     public void backupAgentCreated(String packageName, IBinder agent) throws RemoteException;
     public void unbindBackupAgent(ApplicationInfo appInfo) throws RemoteException;
     public void killApplicationProcess(String processName, int uid) throws RemoteException;
-    
+
     public boolean startInstrumentation(ComponentName className, String profileFile,
-            int flags, Bundle arguments, IInstrumentationWatcher watcher, int userId)
-            throws RemoteException;
+            int flags, Bundle arguments, IInstrumentationWatcher watcher,
+            IUiAutomationConnection connection, int userId) throws RemoteException;
     public void finishInstrumentation(IApplicationThread target,
             int resultCode, Bundle results) throws RemoteException;
 
@@ -168,7 +169,7 @@ public interface IActivityManager extends IInterface {
     public void setRequestedOrientation(IBinder token,
             int requestedOrientation) throws RemoteException;
     public int getRequestedOrientation(IBinder token) throws RemoteException;
-    
+
     public ComponentName getActivityClassForToken(IBinder token) throws RemoteException;
     public String getPackageForToken(IBinder token) throws RemoteException;
 
@@ -181,16 +182,18 @@ public interface IActivityManager extends IInterface {
             final IPackageDataObserver observer, int userId) throws RemoteException;
     public String getPackageForIntentSender(IIntentSender sender) throws RemoteException;
     public int getUidForIntentSender(IIntentSender sender) throws RemoteException;
-    
+
     public int handleIncomingUser(int callingPid, int callingUid, int userId, boolean allowAll,
             boolean requireFull, String name, String callerPackage) throws RemoteException;
 
     public void setProcessLimit(int max) throws RemoteException;
     public int getProcessLimit() throws RemoteException;
-    
+
     public void setProcessForeground(IBinder token, int pid,
             boolean isForeground) throws RemoteException;
-    
+
+    public boolean isHwuiDisabledForProcess(int pid) throws RemoteException;
+
     public int checkPermission(String permission, int pid, int uid)
             throws RemoteException;
 
@@ -200,17 +203,17 @@ public interface IActivityManager extends IInterface {
             Uri uri, int mode) throws RemoteException;
     public void revokeUriPermission(IApplicationThread caller, Uri uri,
             int mode) throws RemoteException;
-    
+
     public void showWaitingForDebugger(IApplicationThread who, boolean waiting)
             throws RemoteException;
-    
+
     public void getMemoryInfo(ActivityManager.MemoryInfo outInfo) throws RemoteException;
-    
+
     public void killBackgroundProcesses(final String packageName, int userId)
             throws RemoteException;
     public void killAllBackgroundProcesses() throws RemoteException;
     public void forceStopPackage(final String packageName, int userId) throws RemoteException;
-    
+
     // Note: probably don't want to allow applications access to these.
     public void goingToSleep() throws RemoteException;
     public void wakingUp() throws RemoteException;
@@ -226,7 +229,7 @@ public interface IActivityManager extends IInterface {
         throws RemoteException;
 
     public void enterSafeMode() throws RemoteException;
-    
+
     public void noteWakeupAlarm(IIntentSender sender) throws RemoteException;
 
     public boolean killPids(int[] pids, String reason, boolean secure) throws RemoteException;
@@ -248,7 +251,7 @@ public interface IActivityManager extends IInterface {
             StrictMode.ViolationInfo crashInfo) throws RemoteException;
 
     /*
-     * This will deliver the specified signal to all the persistent processes. Currently only 
+     * This will deliver the specified signal to all the persistent processes. Currently only
      * SIGUSR1 is delivered. All others are ignored.
      */
     public void signalPersistentProcesses(int signal) throws RemoteException;
@@ -264,39 +267,41 @@ public interface IActivityManager extends IInterface {
             throws RemoteException;
     // Get device configuration
     public ConfigurationInfo getDeviceConfigurationInfo() throws RemoteException;
-    
+
     // Turn on/off profiling in a particular process.
     public boolean profileControl(String process, int userId, boolean start,
             String path, ParcelFileDescriptor fd, int profileType) throws RemoteException;
-    
+
     public boolean shutdown(int timeout) throws RemoteException;
-    
+
     public void stopAppSwitches() throws RemoteException;
     public void resumeAppSwitches() throws RemoteException;
-    
+
     public void killApplicationWithAppId(String pkg, int appid) throws RemoteException;
-    
+
     public void closeSystemDialogs(String reason) throws RemoteException;
-    
+
     public Debug.MemoryInfo[] getProcessMemoryInfo(int[] pids)
             throws RemoteException;
-    
+
     public void overridePendingTransition(IBinder token, String packageName,
             int enterAnim, int exitAnim) throws RemoteException;
-    
+
     public boolean isUserAMonkey() throws RemoteException;
-    
+
+    public void setUserIsMonkey(boolean monkey) throws RemoteException;
+
     public void finishHeavyWeightApp() throws RemoteException;
 
     public void setImmersive(IBinder token, boolean immersive) throws RemoteException;
     public boolean isImmersive(IBinder token) throws RemoteException;
     public boolean isTopActivityImmersive() throws RemoteException;
-    
+
     public void crashApplication(int uid, int initialPid, String packageName,
             String message) throws RemoteException;
 
     public String getProviderMimeType(Uri uri, int userId) throws RemoteException;
-    
+
     public IBinder newUriPermissionOwner(String name) throws RemoteException;
     public void grantUriPermissionFromOwner(IBinder owner, int fromUid, String targetPkg,
             Uri uri, int mode) throws RemoteException;
@@ -310,7 +315,7 @@ public interface IActivityManager extends IInterface {
     public boolean dumpHeap(String process, int userId, boolean managed, String path,
         ParcelFileDescriptor fd) throws RemoteException;
 
-    public int startActivities(IApplicationThread caller,
+    public int startActivities(IApplicationThread caller, String callingPackage,
             Intent[] intents, String[] resolvedTypes, IBinder resultTo,
             Bundle options, int userId) throws RemoteException;
 
@@ -357,9 +362,10 @@ public interface IActivityManager extends IInterface {
     public boolean navigateUpTo(IBinder token, Intent target, int resultCode, Intent resultData)
             throws RemoteException;
 
-    // This is not public because you need to be very careful in how you
+    // These are not public because you need to be very careful in how you
     // manage your activity to make sure it is always the uid you expect.
     public int getLaunchedFromUid(IBinder activityToken) throws RemoteException;
+    public String getLaunchedFromPackage(IBinder activityToken) throws RemoteException;
 
     public void registerUserSwitchObserver(IUserSwitchObserver observer) throws RemoteException;
     public void unregisterUserSwitchObserver(IUserSwitchObserver observer) throws RemoteException;
@@ -368,11 +374,19 @@ public interface IActivityManager extends IInterface {
 
     public long inputDispatchingTimedOut(int pid, boolean aboveSystem) throws RemoteException;
 
+    public Bundle getTopActivityExtras(int requestType) throws RemoteException;
+
+    public void reportTopActivityExtras(IBinder token, Bundle extras) throws RemoteException;
+
+    public void killUid(int uid, String reason) throws RemoteException;
+
+    public void hang(IBinder who, boolean allowRestart) throws RemoteException;
+
     /*
      * Private non-Binder interfaces
      */
     /* package */ boolean testIsSystemReady();
-    
+
     /** Information you can retrieve about a particular application. */
     public static class ContentProviderHolder implements Parcelable {
         public final ProviderInfo info;
@@ -624,4 +638,12 @@ public interface IActivityManager extends IInterface {
     int INPUT_DISPATCHING_TIMED_OUT_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+158;
     int CLEAR_PENDING_BACKUP_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+159;
     int GET_INTENT_FOR_INTENT_SENDER_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+160;
+    int GET_TOP_ACTIVITY_EXTRAS_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+161;
+    int REPORT_TOP_ACTIVITY_EXTRAS_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+162;
+    int GET_LAUNCHED_FROM_PACKAGE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+163;
+    int KILL_UID_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+164;
+    int SET_USER_IS_MONKEY_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+165;
+    int HANG_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+166;
+    int GET_CALLING_PACKAGE_FOR_BROADCAST_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+168;
+    int IS_HWUI_DISABLED_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+169;
 }

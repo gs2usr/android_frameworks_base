@@ -25,6 +25,8 @@ import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
@@ -69,12 +71,12 @@ public class Spinner extends AbsSpinner implements OnClickListener {
      * Use a dropdown anchored to the Spinner for selecting spinner options.
      */
     public static final int MODE_DROPDOWN = 1;
-    
+
     /**
      * Use the theme-supplied value to select the dropdown mode.
      */
     private static final int MODE_THEME = -1;
-    
+
     private SpinnerPopup mPopup;
     private DropDownAdapter mTempAdapter;
     int mDropDownWidth;
@@ -102,7 +104,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
      * @param context The Context the view is running in, through which it can
      *        access the current theme, resources, etc.
      * @param mode Constant describing how the user will select choices from the spinner.
-     * 
+     *
      * @see #MODE_DIALOG
      * @see #MODE_DROPDOWN
      */
@@ -150,7 +152,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
      *        either be an attribute resource, whose value will be retrieved
      *        from the current theme, or an explicit style resource.
      * @param mode Constant describing how the user will select choices from the spinner.
-     * 
+     *
      * @see #MODE_DIALOG
      * @see #MODE_DROPDOWN
      */
@@ -163,7 +165,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         if (mode == MODE_THEME) {
             mode = a.getInt(com.android.internal.R.styleable.Spinner_spinnerMode, MODE_DIALOG);
         }
-        
+
         switch (mode) {
         case MODE_DIALOG: {
             mPopup = new DialogPopup();
@@ -194,7 +196,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
             break;
         }
         }
-        
+
         mGravity = a.getInt(com.android.internal.R.styleable.Spinner_gravity, Gravity.CENTER);
 
         mPopup.setPromptText(a.getString(com.android.internal.R.styleable.Spinner_prompt));
@@ -409,7 +411,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        
+
         if (mPopup != null && mPopup.isShowing()) {
             mPopup.dismiss();
         }
@@ -492,20 +494,23 @@ public class Spinner extends AbsSpinner implements OnClickListener {
 
         // Make selected view and position it
         mFirstPosition = mSelectedPosition;
-        View sel = makeAndAddView(mSelectedPosition);
-        int width = sel.getMeasuredWidth();
-        int selectedOffset = childrenLeft;
-        final int layoutDirection = getLayoutDirection();
-        final int absoluteGravity = Gravity.getAbsoluteGravity(mGravity, layoutDirection);
-        switch (absoluteGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
-            case Gravity.CENTER_HORIZONTAL:
-                selectedOffset = childrenLeft + (childrenWidth / 2) - (width / 2);
-                break;
-            case Gravity.RIGHT:
-                selectedOffset = childrenLeft + childrenWidth - width;
-                break;
+
+        if (mAdapter != null) {
+            View sel = makeAndAddView(mSelectedPosition);
+            int width = sel.getMeasuredWidth();
+            int selectedOffset = childrenLeft;
+            final int layoutDirection = getLayoutDirection();
+            final int absoluteGravity = Gravity.getAbsoluteGravity(mGravity, layoutDirection);
+            switch (absoluteGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
+                case Gravity.CENTER_HORIZONTAL:
+                    selectedOffset = childrenLeft + (childrenWidth / 2) - (width / 2);
+                    break;
+                case Gravity.RIGHT:
+                    selectedOffset = childrenLeft + childrenWidth - width;
+                    break;
+            }
+            sel.offsetLeftAndRight(selectedOffset);
         }
-        sel.offsetLeftAndRight(selectedOffset);
 
         // Flush any cached views that did not get reused above
         mRecycler.clear();
@@ -601,12 +606,12 @@ public class Spinner extends AbsSpinner implements OnClickListener {
     @Override
     public boolean performClick() {
         boolean handled = super.performClick();
-        
+
         if (!handled) {
             handled = true;
 
             if (!mPopup.isShowing()) {
-                mPopup.show();
+                mPopup.show(getTextDirection(), getTextAlignment());
             }
         }
 
@@ -697,6 +702,69 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         return width;
     }
 
+    @Override
+    public Parcelable onSaveInstanceState() {
+        final SavedState ss = new SavedState(super.onSaveInstanceState());
+        ss.showDropdown = mPopup != null && mPopup.isShowing();
+        return ss;
+    }
+
+    @Override
+    public void onRestoreInstanceState(Parcelable state) {
+        SavedState ss = (SavedState) state;
+
+        super.onRestoreInstanceState(ss.getSuperState());
+
+        if (ss.showDropdown) {
+            ViewTreeObserver vto = getViewTreeObserver();
+            if (vto != null) {
+                final OnGlobalLayoutListener listener = new OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        if (!mPopup.isShowing()) {
+                            mPopup.show(getTextDirection(), getTextAlignment());
+                        }
+                        final ViewTreeObserver vto = getViewTreeObserver();
+                        if (vto != null) {
+                            vto.removeOnGlobalLayoutListener(this);
+                        }
+                    }
+                };
+                vto.addOnGlobalLayoutListener(listener);
+            }
+        }
+    }
+
+    static class SavedState extends AbsSpinner.SavedState {
+        boolean showDropdown;
+
+        SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        private SavedState(Parcel in) {
+            super(in);
+            showDropdown = in.readByte() != 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            super.writeToParcel(out, flags);
+            out.writeByte((byte) (showDropdown ? 1 : 0));
+        }
+
+        public static final Parcelable.Creator<SavedState> CREATOR =
+                new Parcelable.Creator<SavedState>() {
+            public SavedState createFromParcel(Parcel in) {
+                return new SavedState(in);
+            }
+
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
+    }
+
     /**
      * <p>Wrapper class for an Adapter. Transforms the embedded Adapter instance
      * into a ListAdapter.</p>
@@ -734,8 +802,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         }
 
         public View getDropDownView(int position, View convertView, ViewGroup parent) {
-            return mAdapter == null ? null :
-                    mAdapter.getDropDownView(position, convertView, parent);
+            return (mAdapter == null) ? null : mAdapter.getDropDownView(position, convertView, parent);
         }
 
         public boolean hasStableIds() {
@@ -756,7 +823,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
 
         /**
          * If the wrapped SpinnerAdapter is also a ListAdapter, delegate this call.
-         * Otherwise, return true. 
+         * Otherwise, return true.
          */
         public boolean areAllItemsEnabled() {
             final ListAdapter adapter = mListAdapter;
@@ -787,34 +854,34 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         public int getViewTypeCount() {
             return 1;
         }
-        
+
         public boolean isEmpty() {
             return getCount() == 0;
         }
     }
-    
+
     /**
      * Implements some sort of popup selection interface for selecting a spinner option.
      * Allows for different spinner modes.
      */
     private interface SpinnerPopup {
         public void setAdapter(ListAdapter adapter);
-        
+
         /**
          * Show the popup
          */
-        public void show();
-        
+        public void show(int textDirection, int textAlignment);
+
         /**
          * Dismiss the popup
          */
         public void dismiss();
-        
+
         /**
          * @return true if the popup is showing, false otherwise.
          */
         public boolean isShowing();
-        
+
         /**
          * Set hint text to be displayed to the user. This should provide
          * a description of the choice being made.
@@ -830,15 +897,17 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         public int getVerticalOffset();
         public int getHorizontalOffset();
     }
-    
+
     private class DialogPopup implements SpinnerPopup, DialogInterface.OnClickListener {
         private AlertDialog mPopup;
         private ListAdapter mListAdapter;
         private CharSequence mPrompt;
 
         public void dismiss() {
-            mPopup.dismiss();
-            mPopup = null;
+            if (mPopup != null) {
+                mPopup.dismiss();
+                mPopup = null;
+            }
         }
 
         public boolean isShowing() {
@@ -852,20 +921,24 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         public void setPromptText(CharSequence hintText) {
             mPrompt = hintText;
         }
-        
+
         public CharSequence getHintText() {
             return mPrompt;
         }
 
-        public void show() {
+        public void show(int textDirection, int textAlignment) {
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
             if (mPrompt != null) {
                 builder.setTitle(mPrompt);
             }
             mPopup = builder.setSingleChoiceItems(mListAdapter,
-                    getSelectedItemPosition(), this).show();
+                    getSelectedItemPosition(), this).create();
+            final ListView listView = mPopup.getListView();
+            listView.setTextDirection(textDirection);
+            listView.setTextAlignment(textAlignment);
+            mPopup.show();
         }
-        
+
         public void onClick(DialogInterface dialog, int which) {
             setSelection(which);
             if (mOnItemClickListener != null) {
@@ -904,7 +977,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
             return 0;
         }
     }
-    
+
     private class DropdownPopup extends ListPopupWindow implements SpinnerPopup {
         private CharSequence mHintText;
         private ListAdapter mAdapter;
@@ -925,7 +998,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
                 }
             });
         }
-        
+
         @Override
         public void setAdapter(ListAdapter adapter) {
             super.setAdapter(adapter);
@@ -935,14 +1008,13 @@ public class Spinner extends AbsSpinner implements OnClickListener {
         public CharSequence getHintText() {
             return mHintText;
         }
-        
+
         public void setPromptText(CharSequence hintText) {
             // Hint text is ignored for dropdowns, but maintain it here.
             mHintText = hintText;
         }
 
-        @Override
-        public void show() {
+        void computeContentWidth() {
             final Drawable background = getBackground();
             int hOffset = 0;
             if (background != null) {
@@ -955,6 +1027,7 @@ public class Spinner extends AbsSpinner implements OnClickListener {
             final int spinnerPaddingLeft = Spinner.this.getPaddingLeft();
             final int spinnerPaddingRight = Spinner.this.getPaddingRight();
             final int spinnerWidth = Spinner.this.getWidth();
+
             if (mDropDownWidth == WRAP_CONTENT) {
                 int contentWidth =  measureContentWidth(
                         (SpinnerAdapter) mAdapter, getBackground());
@@ -977,10 +1050,26 @@ public class Spinner extends AbsSpinner implements OnClickListener {
                 hOffset += spinnerPaddingLeft;
             }
             setHorizontalOffset(hOffset);
+        }
+
+        public void show(int textDirection, int textAlignment) {
+            final boolean wasShowing = isShowing();
+
+            computeContentWidth();
+
             setInputMethodMode(ListPopupWindow.INPUT_METHOD_NOT_NEEDED);
             super.show();
-            getListView().setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+            final ListView listView = getListView();
+            listView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+            listView.setTextDirection(textDirection);
+            listView.setTextAlignment(textAlignment);
             setSelection(Spinner.this.getSelectedItemPosition());
+
+            if (wasShowing) {
+                // Skip setting up the layout/dismiss listener below. If we were previously
+                // showing it will still stick around.
+                return;
+            }
 
             // Make sure we hide if our anchor goes away.
             // TODO: This might be appropriate to push all the way down to PopupWindow,
@@ -992,6 +1081,12 @@ public class Spinner extends AbsSpinner implements OnClickListener {
                     public void onGlobalLayout() {
                         if (!Spinner.this.isVisibleToUser()) {
                             dismiss();
+                        } else {
+                            computeContentWidth();
+
+                            // Use super.show here to update; we don't want to move the selected
+                            // position or adjust other things that would be reset otherwise.
+                            DropdownPopup.super.show();
                         }
                     }
                 };

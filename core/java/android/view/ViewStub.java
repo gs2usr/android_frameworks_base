@@ -30,7 +30,7 @@ import java.lang.ref.WeakReference;
  * A ViewStub is an invisible, zero-sized View that can be used to lazily inflate
  * layout resources at runtime.
  *
- * When a ViewStub is made visible, or when {@link #inflate()}  is invoked, the layout resource 
+ * When a ViewStub is made visible, or when {@link #inflate()}  is invoked, the layout resource
  * is inflated. The ViewStub then replaces itself in its parent with the inflated View or Views.
  * Therefore, the ViewStub exists in the view hierarchy until {@link #setVisibility(int)} or
  * {@link #inflate()} is invoked.
@@ -168,9 +168,9 @@ public final class ViewStub extends View {
      * Specifies the layout resource to inflate when this StubbedView becomes visible or invisible
      * or when {@link #inflate()} is invoked. The View created by inflating the layout resource is
      * used to replace this StubbedView in its parent.
-     * 
+     *
      * @param layoutResource A valid layout resource identifier (different from 0.)
-     * 
+     *
      * @see #getLayoutResource()
      * @see #setVisibility(int)
      * @see #inflate()
@@ -212,11 +212,12 @@ public final class ViewStub extends View {
     /**
      * When visibility is set to {@link #VISIBLE} or {@link #INVISIBLE},
      * {@link #inflate()} is invoked and this StubbedView is replaced in its parent
-     * by the inflated layout resource.
+     * by the inflated layout resource. After that calls to this function are passed
+     * through to the inflated view.
      *
      * @param visibility One of {@link #VISIBLE}, {@link #INVISIBLE}, or {@link #GONE}.
      *
-     * @see #inflate() 
+     * @see #inflate()
      */
     @Override
     @android.view.RemotableViewMethod
@@ -303,7 +304,7 @@ public final class ViewStub extends View {
      * Listener used to receive a notification after a ViewStub has successfully
      * inflated its layout resource.
      *
-     * @see android.view.ViewStub#setOnInflateListener(android.view.ViewStub.OnInflateListener) 
+     * @see android.view.ViewStub#setOnInflateListener(android.view.ViewStub.OnInflateListener)
      */
     public static interface OnInflateListener {
         /**

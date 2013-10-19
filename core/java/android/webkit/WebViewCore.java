@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,6 +13,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 
 package android.webkit;
@@ -40,6 +44,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.webkit.WebViewClassic.FocusNodeHref;
 import android.webkit.WebViewInputDispatcher.WebKitCallbacks;
+
+import com.android.internal.os.SomeArgs;
 
 import junit.framework.Assert;
 
@@ -1172,6 +1178,7 @@ public final class WebViewCore {
         static final int SELECT_TEXT = 213;
         static final int SELECT_WORD_AT = 214;
         static final int SELECT_ALL = 215;
+        static final int CLEAR_SELECT_TEXT = 216;
 
         // for updating state on trust storage change
         static final int TRUST_STORAGE_UPDATED = 220;
@@ -1545,12 +1552,14 @@ public final class WebViewCore {
                         case MODIFY_SELECTION:
                             mTextSelectionChangeReason
                                     = TextSelectionData.REASON_ACCESSIBILITY_INJECTOR;
-                            String modifiedSelectionString =
-                                nativeModifySelection(mNativeClass, msg.arg1,
-                                        msg.arg2);
-                            mWebViewClassic.mPrivateHandler.obtainMessage(
-                                    WebViewClassic.SELECTION_STRING_CHANGED,
-                                    modifiedSelectionString).sendToTarget();
+                            final SomeArgs args = (SomeArgs) msg.obj;
+                            final String modifiedSelectionString = nativeModifySelection(
+                                    mNativeClass, args.argi1, args.argi2);
+                            // If accessibility is on, the main thread may be
+                            // waiting for a response. Send on webcore thread.
+                            mWebViewClassic.handleSelectionChangedWebCoreThread(
+                                    modifiedSelectionString, args.argi3);
+                            args.recycle();
                             mTextSelectionChangeReason
                                     = TextSelectionData.REASON_UNKNOWN;
                             break;
@@ -1694,6 +1703,10 @@ public final class WebViewCore {
                         case INSERT_TEXT:
                             nativeInsertText(mNativeClass, (String) msg.obj);
                             break;
+                        case CLEAR_SELECT_TEXT: {
+                            nativeClearTextSelection(mNativeClass);
+                            break;
+                        }
                         case SELECT_TEXT: {
                             int handleId = (Integer) msg.obj;
                             nativeSelectText(mNativeClass, handleId,
@@ -2001,9 +2014,6 @@ public final class WebViewCore {
 
     private void clearCache(boolean includeDiskFiles) {
         mBrowserFrame.clearCache();
-        if (includeDiskFiles) {
-            CacheManager.removeAllCacheFiles();
-        }
     }
 
     private void loadUrl(String url, Map<String, String> extraHeaders) {
@@ -2530,8 +2540,13 @@ public final class WebViewCore {
         // adjust the default scale to match the densityDpi
         float adjust = 1.0f;
         if (mViewportDensityDpi == -1) {
-            adjust = getFixedDisplayDensity(mContext);
-        } else if (mViewportDensityDpi > 0) {
+            if( mWebViewClassic != null && mWebViewClassic.getDefaultZoomScale() *
+                mSettings.getDefaultZoom().value != mContext.getResources().getDisplayMetrics().density * 100)
+        mWebViewClassic.adjustDefaultZoomDensity( mSettings.getDefaultZoom().value);
+                if( mWebViewClassic != null && (int)( mWebViewClassic.getDefaultZoomScale() * 100) != 100) {
+                    adjust = mWebViewClassic.getDefaultZoomScale();
+                }
+            } else if (mViewportDensityDpi > 0) {
             adjust = (float) mContext.getResources().getDisplayMetrics().densityDpi
                     / mViewportDensityDpi;
             adjust = ((int) (adjust * 100)) / 100.0f;

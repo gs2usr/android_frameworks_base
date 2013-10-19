@@ -84,7 +84,7 @@ import java.util.List;
  * items.  Doing this implicitly switches the class into its new "headers
  * + fragments" mode rather than the old style of just showing a single
  * preferences list.
- * 
+ *
  * <div class="special reference">
  * <h3>Developer Guides</h3>
  * <p>For information about using {@code PreferenceActivity},
@@ -286,7 +286,7 @@ public abstract class PreferenceActivity extends ListActivity implements
                 holder = (HeaderViewHolder) view.getTag();
             }
 
-            // All view fields must be updated every time, because the view may be recycled 
+            // All view fields must be updated every time, because the view may be recycled
             Header header = getItem(position);
             holder.icon.setImageResource(header.iconRes);
             holder.title.setText(header.getTitle(getContext().getResources()));
@@ -308,7 +308,7 @@ public abstract class PreferenceActivity extends ListActivity implements
      * are valid.
      */
     public static final long HEADER_ID_UNDEFINED = -1;
-    
+
     /**
      * Description of a single Header item that the user can select.
      */
@@ -450,7 +450,7 @@ public abstract class PreferenceActivity extends ListActivity implements
             }
             return breadCrumbShortTitle;
         }
-        
+
         @Override
         public int describeContents() {
             return 0;
@@ -726,7 +726,13 @@ public abstract class PreferenceActivity extends ListActivity implements
      * show for the initial UI.
      */
     public Header onGetInitialHeader() {
-        return mHeaders.get(0);
+        for (int i=0; i<mHeaders.size(); i++) {
+            Header h = mHeaders.get(i);
+            if (h.fragment != null) {
+                return h;
+            }
+        }
+        throw new IllegalStateException("Must have at least one header with a fragment");
     }
 
     /**
@@ -1030,7 +1036,7 @@ public abstract class PreferenceActivity extends ListActivity implements
      * the selected fragment.  The default implementation constructs an Intent
      * that re-launches the current activity with the appropriate arguments to
      * display the fragment.
-     * 
+     *
      * @param fragmentName The name of the fragment to display.
      * @param args Optional arguments to supply to the fragment.
      * @param titleRes Optional resource ID of title to show for this item.
@@ -1216,6 +1222,9 @@ public abstract class PreferenceActivity extends ListActivity implements
             getFragmentManager().popBackStack(BACK_STACK_PREFS,
                     FragmentManager.POP_BACK_STACK_INCLUSIVE);
         } else {
+            if (header.fragment == null) {
+                throw new IllegalStateException("can't switch to header that has no fragment");
+            }
             int direction = mHeaders.indexOf(header) - mHeaders.indexOf(mCurHeader);
             switchToHeaderInner(header.fragment, header.fragmentArguments, direction);
             setSelectedHeader(header);
@@ -1292,7 +1301,7 @@ public abstract class PreferenceActivity extends ListActivity implements
      * be instantiated and placed in the appropriate pane.  If running in
      * single-pane mode, a new activity will be launched in which to show the
      * fragment.
-     * 
+     *
      * @param fragmentClass Full name of the class implementing the fragment.
      * @param args Any desired arguments to supply to the fragment.
      * @param titleRes Optional resource identifier of the title of this
@@ -1331,10 +1340,10 @@ public abstract class PreferenceActivity extends ListActivity implements
             transaction.commitAllowingStateLoss();
         }
     }
-    
+
     /**
      * Called by a preference panel fragment to finish itself.
-     * 
+     *
      * @param caller The fragment that is asking to be finished.
      * @param resultCode Optional result code to send back to the original
      * launching fragment.
@@ -1356,7 +1365,7 @@ public abstract class PreferenceActivity extends ListActivity implements
             }
         }
     }
-    
+
     @Override
     public boolean onPreferenceStartFragment(PreferenceFragment caller, Preference pref) {
         startPreferencePanel(pref.getFragment(), pref.getExtras(), pref.getTitleRes(),

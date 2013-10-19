@@ -40,7 +40,7 @@ public abstract class Vibrator {
      * @return True if the hardware has a vibrator, else false.
      */
     public abstract boolean hasVibrator();
-    
+
     /**
      * Vibrate constantly for the specified period of time.
      * <p>This method requires the caller to hold the permission
@@ -71,6 +71,20 @@ public abstract class Vibrator {
      *        you don't want to repeat.
      */
     public abstract void vibrate(long[] pattern, int repeat);
+
+    /**
+     * @hide
+     * Like {@link #vibrate(long)}, but allowing the caller to specify that
+     * the vibration is owned by someone else.
+     */
+    public abstract void vibrate(int owningUid, String owningPackage, long milliseconds);
+
+    /**
+     * @hide
+     * Like {@link #vibrate(long[], int)}, but allowing the caller to specify that
+     * the vibration is owned by someone else.
+     */
+    public abstract void vibrate(int owningUid, String owningPackage, long[] pattern, int repeat);
 
     /**
      * Turn the vibrator off.
