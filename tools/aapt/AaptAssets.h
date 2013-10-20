@@ -39,6 +39,7 @@ enum {
     AXIS_SCREENLAYOUTSIZE,
     AXIS_SCREENLAYOUTLONG,
     AXIS_ORIENTATION,
+    AXIS_UIINVERTEDMODE,
     AXIS_UIMODETYPE,
     AXIS_UIMODENIGHT,
     AXIS_DENSITY,
@@ -84,6 +85,7 @@ public:
     static bool getScreenLayoutSizeName(const char* name, ResTable_config* out = NULL);
     static bool getScreenLayoutLongName(const char* name, ResTable_config* out = NULL);
     static bool getOrientationName(const char* name, ResTable_config* out = NULL);
+    static bool getUiInvertedModeName(const char* name, ResTable_config* out = NULL);
     static bool getUiModeTypeName(const char* name, ResTable_config* out = NULL);
     static bool getUiModeNightName(const char* name, ResTable_config* out = NULL);
     static bool getDensityName(const char* name, ResTable_config* out = NULL);
@@ -126,6 +128,7 @@ private:
     String8 screenLayoutSize;
     String8 screenLayoutLong;
     String8 orientation;
+    String8 uiInvertedMode;
     String8 uiModeType;
     String8 uiModeNight;
     String8 density;
@@ -347,24 +350,24 @@ public:
         stringVal = o.stringVal;
         return *this;
     }
-    
+
     const String8 name;
-    
+
     SourcePos sourcePos;
     bool isPublic;
     bool isJavaSymbol;
-    
+
     String16 comment;
     String16 typeComment;
-    
+
     enum {
         TYPE_UNKNOWN = 0,
         TYPE_INT32,
         TYPE_STRING
     };
-    
+
     int typeCode;
-    
+
     // Value.  May be one of these.
     int32_t int32Val;
     String8 stringVal;
@@ -444,12 +447,12 @@ public:
             sym.typeComment.append(comment);
         }
     }
-    
+
     sp<AaptSymbols> addNestedSymbol(const String8& name, const SourcePos& pos) {
         if (!check_valid_symbol_name(name, pos, "nested symbol")) {
             return NULL;
         }
-        
+
         sp<AaptSymbols> sym = mNestedSymbols.valueFor(name);
         if (sym == NULL) {
             sym = new AaptSymbols();
@@ -551,7 +554,7 @@ public:
                      const String8& resType);
 
     void addGroupEntry(const AaptGroupEntry& entry) { mGroupEntries.add(entry); }
-    
+
     ssize_t slurpFromArgs(Bundle* bundle);
 
     sp<AaptSymbols> getSymbolsFor(const String8& name);
@@ -583,9 +586,9 @@ public:
 
     inline sp<AaptAssets> getOverlay() { return mOverlay; }
     inline void setOverlay(sp<AaptAssets>& overlay) { mOverlay = overlay; }
-    
+
     inline KeyedVector<String8, sp<ResourceTypeSet> >* getResources() { return mRes; }
-    inline void 
+    inline void
         setResources(KeyedVector<String8, sp<ResourceTypeSet> >* res) { delete mRes; mRes = res; }
 
     inline sp<FilePathStore>& getFullResPaths() { return mFullResPaths; }

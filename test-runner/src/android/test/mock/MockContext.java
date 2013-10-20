@@ -50,7 +50,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * A mock {@link android.content.Context} class.  All methods are non-functional and throw 
+ * A mock {@link android.content.Context} class.  All methods are non-functional and throw
  * {@link java.lang.UnsupportedOperationException}.  You can use this to inject other dependencies,
  * mocks, or monitors into the classes you are testing.
  */
@@ -80,12 +80,12 @@ public class MockContext extends Context {
     public Looper getMainLooper() {
         throw new UnsupportedOperationException();
     }
-    
+
     @Override
     public Context getApplicationContext() {
         throw new UnsupportedOperationException();
     }
-    
+
     @Override
     public void setTheme(int resid) {
         throw new UnsupportedOperationException();
@@ -106,11 +106,17 @@ public class MockContext extends Context {
         throw new UnsupportedOperationException();
     }
 
+    /** @hide */
+    @Override
+    public String getBasePackageName() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public ApplicationInfo getApplicationInfo() {
         throw new UnsupportedOperationException();
     }
-    
+
     @Override
     public String getPackageResourcePath() {
         throw new UnsupportedOperationException();
@@ -171,7 +177,7 @@ public class MockContext extends Context {
     public File getObbDir() {
         throw new UnsupportedOperationException();
     }
-    
+
     @Override
     public File getCacheDir() {
         throw new UnsupportedOperationException();
@@ -188,7 +194,7 @@ public class MockContext extends Context {
     }
 
     @Override
-    public SQLiteDatabase openOrCreateDatabase(String file, int mode, 
+    public SQLiteDatabase openOrCreateDatabase(String file, int mode,
             SQLiteDatabase.CursorFactory factory) {
         throw new UnsupportedOperationException();
     }
@@ -282,7 +288,7 @@ public class MockContext extends Context {
             Bundle options) throws IntentSender.SendIntentException {
         startIntentSender(intent, fillInIntent, flagsMask, flagsValues, extraFlags);
     }
-    
+
     @Override
     public void sendBroadcast(Intent intent) {
         throw new UnsupportedOperationException();
@@ -290,6 +296,12 @@ public class MockContext extends Context {
 
     @Override
     public void sendBroadcast(Intent intent, String receiverPermission) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** @hide */
+    @Override
+    public void sendBroadcast(Intent intent, String receiverPermission, int appOp) {
         throw new UnsupportedOperationException();
     }
 
@@ -301,6 +313,14 @@ public class MockContext extends Context {
 
     @Override
     public void sendOrderedBroadcast(Intent intent, String receiverPermission,
+            BroadcastReceiver resultReceiver, Handler scheduler, int initialCode, String initialData,
+           Bundle initialExtras) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** @hide */
+    @Override
+    public void sendOrderedBroadcast(Intent intent, String receiverPermission, int appOp,
             BroadcastReceiver resultReceiver, Handler scheduler, int initialCode, String initialData,
            Bundle initialExtras) {
         throw new UnsupportedOperationException();
@@ -411,7 +431,8 @@ public class MockContext extends Context {
 
     /** @hide */
     @Override
-    public boolean bindService(Intent service, ServiceConnection conn, int flags, int userId) {
+    public boolean bindServiceAsUser(Intent service, ServiceConnection conn, int flags,
+            UserHandle user) {
         throw new UnsupportedOperationException();
     }
 
@@ -428,6 +449,11 @@ public class MockContext extends Context {
 
     @Override
     public Object getSystemService(String name) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isHwuiDisabled() {
         throw new UnsupportedOperationException();
     }
 
@@ -530,6 +556,12 @@ public class MockContext extends Context {
         throw new UnsupportedOperationException();
     }
 
+    /** {@hide} */
+    @Override
+    public int getUserId() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public Context createConfigurationContext(Configuration overrideConfiguration) {
         throw new UnsupportedOperationException();
@@ -542,7 +574,7 @@ public class MockContext extends Context {
 
     @Override
     public boolean isRestricted() {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
     }
 
     /** @hide */

@@ -42,8 +42,8 @@ import com.android.systemui.statusbar.NotificationData;
 
 import java.util.HashMap;
 
-public class NotificationRowLayout 
-        extends LinearLayout 
+public class NotificationRowLayout
+        extends LinearLayout
         implements SwipeHelper.Callback, ExpandHelper.Callback
 {
     private static final String TAG = "NotificationRowLayout";
@@ -61,7 +61,8 @@ public class NotificationRowLayout
     HashMap<View, ValueAnimator> mDisappearingViews = new HashMap<View, ValueAnimator>();
 
     private SwipeHelper mSwipeHelper;
-    
+    private HashMap<View, Runnable> mDismissRunnables = new HashMap<View, Runnable>();
+
     private OnSizeChangedListener mOnSizeChangedListener;
 
     // Flag set during notification removal animation to avoid causing too much work until
@@ -80,7 +81,7 @@ public class NotificationRowLayout
         mRealLayoutTransition = new LayoutTransition();
         mRealLayoutTransition.setAnimateParentHierarchy(true);
         setLayoutTransitionsEnabled(true);
-        
+
         setOrientation(LinearLayout.VERTICAL);
 
         if (DEBUG) {
@@ -109,6 +110,10 @@ public class NotificationRowLayout
 
     public void setOnSizeChangedListener(OnSizeChangedListener l) {
         mOnSizeChangedListener = l;
+    }
+
+    public void runOnDismiss(View child, Runnable runnable) {
+        mDismissRunnables.put(child, runnable);
     }
 
     @Override
@@ -171,6 +176,12 @@ public class NotificationRowLayout
         final View veto = v.findViewById(R.id.veto);
         if (veto != null && veto.getVisibility() != View.GONE && mRemoveViews) {
             veto.performClick();
+        }
+        NotificationData.setUserDismissed(v);
+
+        Runnable dismissRunnable = mDismissRunnables.remove(v);
+        if (dismissRunnable != null) {
+            dismissRunnable.run();
         }
     }
 

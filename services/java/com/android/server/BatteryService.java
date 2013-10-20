@@ -106,6 +106,7 @@ public final class BatteryService extends Binder {
     private final Handler mHandler;
 
     private final Object mLock = new Object();
+    private SettingsObserver mObserver;
 
     /* Begin native fields: All of these fields are set by native code. */
     private boolean mAcOnline;
@@ -193,8 +194,8 @@ public final class BatteryService extends Binder {
                     "DEVPATH=/devices/virtual/switch/invalid_charger");
         }
 
-        SettingsObserver observer = new SettingsObserver(new Handler());
-        observer.observe();
+        mObserver = new SettingsObserver(new Handler());
+        mObserver.observe();
 
         // set initial status
         synchronized (mLock) {
@@ -261,6 +262,15 @@ public final class BatteryService extends Binder {
     public boolean isBatteryLow() {
         synchronized (mLock) {
             return mBatteryPresent && mBatteryLevel <= mLowBatteryWarningLevel;
+        }
+    }
+
+    /**
+     * Returns a non-zero value if an  unsupported charger is attached.
+     */
+    public int getInvalidCharger() {
+        synchronized (mLock) {
+            return mInvalidCharger;
         }
     }
 
@@ -845,16 +855,18 @@ public final class BatteryService extends Binder {
             mLedPulseEnabled = Settings.System.getInt(resolver,
                         Settings.System.BATTERY_LIGHT_PULSE, 1) != 0;
 
-            // Light colors
-            mBatteryLowARGB = Settings.System.getInt(resolver,
-                    Settings.System.BATTERY_LIGHT_LOW_COLOR,
-                    res.getInteger(com.android.internal.R.integer.config_notificationsBatteryLowARGB));
-            mBatteryMediumARGB = Settings.System.getInt(resolver,
-                    Settings.System.BATTERY_LIGHT_MEDIUM_COLOR,
-                    res.getInteger(com.android.internal.R.integer.config_notificationsBatteryMediumARGB));
-            mBatteryFullARGB = Settings.System.getInt(resolver,
-                    Settings.System.BATTERY_LIGHT_FULL_COLOR,
-                    res.getInteger(com.android.internal.R.integer.config_notificationsBatteryFullARGB));
+            if (mMultiColorLed) {
+                // Light colors
+                mBatteryLowARGB = Settings.System.getInt(resolver,
+                        Settings.System.BATTERY_LIGHT_LOW_COLOR,
+                        res.getInteger(com.android.internal.R.integer.config_notificationsBatteryLowARGB));
+                mBatteryMediumARGB = Settings.System.getInt(resolver,
+                        Settings.System.BATTERY_LIGHT_MEDIUM_COLOR,
+                        res.getInteger(com.android.internal.R.integer.config_notificationsBatteryMediumARGB));
+                mBatteryFullARGB = Settings.System.getInt(resolver,
+                        Settings.System.BATTERY_LIGHT_FULL_COLOR,
+                        res.getInteger(com.android.internal.R.integer.config_notificationsBatteryFullARGB));
+            }
 
             // Quiet Hours
             mQuietHoursEnabled = Settings.System.getIntForUser(resolver,

@@ -33,13 +33,10 @@ import android.util.Log;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.widget.RemoteViews;
-import android.widget.TextView;
-import android.widget.ProgressBar;
 import android.os.PowerManager;
 
 // private NM API
 import android.app.INotificationManager;
-import com.android.internal.statusbar.StatusBarNotification;
 
 public class NotificationTestList extends TestActivity
 {
@@ -83,7 +80,7 @@ public class NotificationTestList extends TestActivity
     @Override
     protected Test[] tests() {
         mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        
+
         return mTests;
     }
 
@@ -91,7 +88,7 @@ public class NotificationTestList extends TestActivity
         new Test("Off and sound") {
             public void run() {
                 PowerManager pm = (PowerManager)NotificationTestList.this.getSystemService(Context.POWER_SERVICE);
-                PowerManager.WakeLock wl = 
+                PowerManager.WakeLock wl =
                             pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sound");
                 wl.acquire();
 
@@ -309,7 +306,7 @@ public class NotificationTestList extends TestActivity
                 n.defaults |= Notification.DEFAULT_SOUND ;
                 n.vibrate = new long[] {
                         300, 400, 300, 400, 300, 400, 300, 400, 300, 400, 300, 400,
-                        300, 400, 300, 400, 300, 400, 300, 400, 300, 400, 300, 400, 
+                        300, 400, 300, 400, 300, 400, 300, 400, 300, 400, 300, 400,
                         300, 400, 300, 400, 300, 400, 300, 400, 300, 400, 300, 400 };
                 mNM.notify(1, n);
             }
@@ -330,10 +327,10 @@ public class NotificationTestList extends TestActivity
                                     : mActivityCreateTime);
                             RemoteViews v = new RemoteViews(getPackageName(),
                                     R.layout.progress_notification);
-                            
+
                             v.setProgressBar(R.id.progress_bar, 100, x, false);
                             v.setTextViewText(R.id.status_text, "Progress: " + x + "%");
-                    
+
                             n.contentView = v;
                             n.flags |= Notification.FLAG_ONGOING_EVENT;
 
@@ -723,7 +720,7 @@ public class NotificationTestList extends TestActivity
                     n.setLatestEventInfo(
                             NotificationTestList.this,
                             "Persistent #" + i,
-                            "Notify me!!!" + i, 
+                            "Notify me!!!" + i,
                             null);
                     n.flags |= Notification.FLAG_ONGOING_EVENT;
                     mNM.notify((i+1)*10, n);
@@ -736,13 +733,13 @@ public class NotificationTestList extends TestActivity
                     n.setLatestEventInfo(
                             NotificationTestList.this,
                             "Persistent #" + i,
-                            "Notify me!!!" + i, 
+                            "Notify me!!!" + i,
                             null);
                     mNM.notify((i+1)*10, n);
                 }
             }
         },
-        
+
         new Test("Cancel eight notifications") {
             public void run() {
                 for (int i = 1; i < 9; i++) {
@@ -750,14 +747,14 @@ public class NotificationTestList extends TestActivity
                 }
             }
         },
-        
+
         new Test("Cancel the other two notifications") {
             public void run() {
                 mNM.cancel(10);
                 mNM.cancel(100);
             }
         },
-        
+
         new Test("Persistent with numbers 1") {
             public void run() {
                 mNM.notify(1, notificationWithNumbers(1));
@@ -796,8 +793,9 @@ public class NotificationTestList extends TestActivity
                     INotificationManager directLine = mNM.getService();
                     directLine.enqueueNotificationWithTag(
                             getPackageName(),
-                            null, 
-                            100, 
+                            getPackageName(),
+                            null,
+                            100,
                             n,
                             idOut,
                             UserHandle.myUserId());
@@ -821,8 +819,9 @@ public class NotificationTestList extends TestActivity
                     INotificationManager directLine = mNM.getService();
                     directLine.enqueueNotificationWithTag(
                             getPackageName(),
-                            null, 
-                            200, 
+                            getPackageName(),
+                            null,
+                            200,
                             n,
                             idOut,
                             UserHandle.myUserId());
@@ -846,8 +845,9 @@ public class NotificationTestList extends TestActivity
                     INotificationManager directLine = mNM.getService();
                     directLine.enqueueNotificationWithTag(
                             getPackageName(),
-                            null, 
-                            1, 
+                            getPackageName(),
+                            null,
+                            1,
                             n,
                             idOut,
                             UserHandle.myUserId());

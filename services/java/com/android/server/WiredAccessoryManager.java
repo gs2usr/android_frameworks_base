@@ -79,13 +79,11 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
 
     private int mSwitchValues;
 
-    private boolean dockAudioEnabled = false;
-
     private final WiredAccessoryObserver mObserver;
     private final InputManagerService mInputManager;
 
     private final boolean mUseDevInputEventForAudioJack;
-    
+
     private final Context mContext;
 
     public WiredAccessoryManager(Context context, InputManagerService inputManager) {
@@ -101,12 +99,6 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
 
         mObserver = new WiredAccessoryObserver();
 
-        File f = new File("/sys/class/switch/dock/state");
-        if (f!=null && f.exists()) {
-            // Listen out for changes to the Dock Audio Settings
-            context.registerReceiver(new SettingsChangedReceiver(),
-            new IntentFilter("com.cyanogenmod.settings.SamsungDock"), null, null);
-        }
         context.registerReceiver(new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context ctx, Intent intent) {
@@ -114,26 +106,9 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                     }
                 },
                 new IntentFilter(Intent.ACTION_BOOT_COMPLETED), null, null);
-                
+
         // Observe ALSA uevents
         this.UsbAudioObserver.startObserving("MAJOR=116");
-    }
-
-    private final class SettingsChangedReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            Slog.e(TAG, "Recieved a Settings Changed Action " + action);
-            if (action.equals("com.cyanogenmod.settings.SamsungDock")) {
-                String data = intent.getStringExtra("data");
-                Slog.e(TAG, "Recieved a Dock Audio change " + data);
-                if (data != null && data.equals("1")) {
-                    dockAudioEnabled = true;
-                } else {
-                    dockAudioEnabled = false;
-                }
-            }
-        }
     }
 
     private void bootCompleted() {
@@ -420,21 +395,10 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
         @Override
         public void onUEvent(UEventObserver.UEvent event) {
             if (LOG) Slog.v(TAG, "Headset UEVENT: " + event.toString());
-
-                int state = validateSwitchState(Integer.parseInt(event.get("SWITCH_STATE")));
+            int state = validateSwitchState(Integer.parseInt(event.get("SWITCH_STATE")));
             try {
                 String devPath = event.get("DEVPATH");
                 String name = event.get("SWITCH_NAME");
-                if (name.equals("dock")) {
-                    // Samsung USB Audio Jack is non-sensing - so must be enabled manually
-                    // The choice is made in the GalaxyS2Settings.apk
-                    // device/samsung/i9100/DeviceSettings/src/com/cyanogenmod/settings/device/DockFragmentActivity.java
-                    // This sends an Intent to this class
-                    if ((!dockAudioEnabled) && (state > 0)) {
-                        Slog.e(TAG, "Ignoring dock event as Audio routing disabled " + event);
-                        return;
-                    }
-                }
                 synchronized (mLock) {
                     updateStateLocked(devPath, name, state);
                 }
@@ -492,75 +456,75 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
     private final UEventObserver UsbAudioObserver = new UEventObserver() {
         public void onUEvent(UEventObserver.UEvent event) {
             if(LOG) Slog.v(WiredAccessoryManager.TAG, "USB AUDIO UEVENT: " + event.toString());
-            
+
             String action = event.get("ACTION");
             String devName = event.get("DEVNAME");
             String devPath = event.get("DEVPATH");
             String major = event.get("MAJOR");
             String minor = event.get("MINOR");
-            
+
             if(LOG){
-                Slog.v(WiredAccessoryManager.TAG, 
-                    "ACTION = " + action + 
-                    ", DEVNAME=" + devName + 
-                    ", MAJOR = " + major + 
-                    ", MINOR = " + minor + 
+                Slog.v(WiredAccessoryManager.TAG,
+                    "ACTION = " + action +
+                    ", DEVNAME=" + devName +
+                    ", MAJOR = " + major +
+                    ", MINOR = " + minor +
                     ", DEVPATH = " + devPath);
             }
-            
+
             // Is alsa device?
             if (major.equals("116")) {
                 String devPathLower = devPath.toLowerCase();
-                
+
                 if ((devPathLower.contains("usb")) && (!devPathLower.contains("gadget")) && (devPathLower.endsWith("p"))) {
                     // Get state (enabled/disabled)
                     int state = (action.equals("add") ? 1 : 0);
-                    
+
                     // Create data class
                     UsbAudioData usbAudioData = new UsbAudioData(state, Character.toString(devName.charAt(8)), Character.toString(devName.charAt(10)));
-                    
+
                     if(LOG) {
-                        Slog.v(WiredAccessoryManager.TAG, 
+                        Slog.v(WiredAccessoryManager.TAG,
                             "cardNumber = " + usbAudioData.cardNumber +
                             ", deviceNumber = " + usbAudioData.deviceNumber +
                             ", channels = " + Integer.toString(usbAudioData.channels));
                     }
-                    
+
                     // Notify applications that the audio output is going to change
                     Intent noisyIntent = new Intent("android.media.AUDIO_BECOMING_NOISY");
                     WiredAccessoryManager.this.mContext.sendBroadcast(noisyIntent);
-                    
+
                     // Aquire wake lock before route change
                     WiredAccessoryManager.this.mWakeLock.acquire();
-                    
+
                     // Queue the route change
                     this.mHandler.sendMessageDelayed(this.mHandler.obtainMessage(0, usbAudioData), 500);
                 }
             }
         }
-        
+
         private final Handler mHandler = new Handler() {
             public void handleMessage(Message message) {
                 UsbAudioData usbAudioData = (UsbAudioData)message.obj;
-                
+
                 // Send USB_AUDIO_ACCESSORY_PLUG intent to notify that an USB audio device has been connected.
                 Intent usbAudioIntent = new Intent("android.intent.action.USB_AUDIO_ACCESSORY_PLUG");
                 usbAudioIntent.putExtra("state", usbAudioData.state);
                 usbAudioIntent.putExtra("card", Integer.parseInt(usbAudioData.cardNumber));
                 usbAudioIntent.putExtra("device", Integer.parseInt(usbAudioData.deviceNumber));
                 usbAudioIntent.putExtra("channels", usbAudioData.channels);
-                
+
                 try {
                     WiredAccessoryManager.this.mContext.sendStickyBroadcast(usbAudioIntent);
                 } catch(Exception e) {
                     Slog.e(WiredAccessoryManager.TAG, "Unable to send intent: android.intent.action.USB_AUDIO_ACCESSORY_PLUG");
                 }
-                
+
                 // Route change complete, release the wake lock
                 WiredAccessoryManager.this.mWakeLock.release();
             }
         };
-        
+
         final class UsbAudioData {
             public int state;
             public String cardNumber;

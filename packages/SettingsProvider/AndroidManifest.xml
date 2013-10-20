@@ -9,7 +9,7 @@
                  android:backupAgent="SettingsBackupAgent"
                  android:killAfterRestore="false"
                  android:icon="@drawable/ic_launcher_settings">
-                 
+
     <!-- todo add: android:neverEncrypt="true" -->
 
         <provider android:name="SettingsProvider" android:authorities="settings"
@@ -17,5 +17,15 @@
                   android:exported="true"
                   android:writePermission="android.permission.WRITE_SETTINGS"
                   android:initOrder="100" />
+
+        <activity android:name="ProfilePickerActivity"
+                android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+                android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PROFILE_PICKER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>
 </manifest>

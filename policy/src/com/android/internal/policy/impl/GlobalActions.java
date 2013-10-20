@@ -31,6 +31,7 @@ import android.app.ProfileManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContentResolver;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -134,6 +135,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private boolean mRebootMenu;
     private boolean mShowRebootOnLock = true;
     private Profile mChosenProfile;
+    private final boolean mShowSilentToggle;
 
     /**
      * @param context everything needs a context :(
@@ -166,20 +168,23 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                 mAirplaneModeObserver);
         Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
         mHasVibrator = vibrator != null && vibrator.hasVibrator();
-        
+
         mShowRebootOnLock = Settings.System.getBoolean(mContext.getContentResolver(),
                 Settings.System.POWER_DIALOG_SHOW_REBOOT_KEYGUARD, true);
+
+        mShowSilentToggle = SHOW_SILENT_TOGGLE && !mContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_useFixedVolume);
     }
 
     /**
      * Show the global actions dialog (creating if necessary)
      * @param keyguardLocked True if keyguard is locked
      */
-     
+
     public void showDialog(boolean keyguardShowing, boolean isDeviceProvisioned) {
         showDialog(keyguardShowing, isDeviceProvisioned, false);
     }
-     
+
     public void showDialog(boolean keyguardLocked, boolean isDeviceProvisioned,
         boolean isRebootSubMenu) {
         mKeyguardLocked = keyguardLocked;
@@ -312,6 +317,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         };
         onAirplaneModeChanged();
 
+        final ContentResolver cr = mContext.getContentResolver();
         mItems = new ArrayList<Action>();
 
         // first: power off
@@ -319,7 +325,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             new SinglePressAction(
                     com.android.internal.R.drawable.ic_lock_power_off,
                     R.string.global_action_power_off) {
-                
+
                 public boolean showDuringKeyguard() {
                     if (mShowRebootOnLock) {
                         return true;
@@ -436,8 +442,9 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         }
 
         // next: bug report, if enabled
-        if (Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.BUGREPORT_IN_POWER_MENU, 0) != 0) {
+        boolean showBugReport = Settings.Global.getInt(cr,
+                Settings.Global.BUGREPORT_IN_POWER_MENU, 0) != 0;
+        if (showBugReport) {
             mItems.add(
                 new SinglePressAction(com.android.internal.R.drawable.stat_sys_adb,
                         R.string.global_action_bug_report) {
@@ -607,18 +614,19 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         );
     }
 
-    private void createProfileDialog(){
-        final ProfileManager profileManager = (ProfileManager)mContext.getSystemService(Context.PROFILE_SERVICE);
+    private void createProfileDialog() {
+        final ProfileManager profileManager = (ProfileManager) mContext
+                .getSystemService(Context.PROFILE_SERVICE);
 
         final Profile[] profiles = profileManager.getProfiles();
         UUID activeProfile = profileManager.getActiveProfile().getUuid();
         final CharSequence[] names = new CharSequence[profiles.length];
 
-        int i=0;
+        int i = 0;
         int checkedItem = 0;
 
-        for(Profile profile : profiles) {
-            if(profile.getUuid().equals(activeProfile)) {
+        for (Profile profile : profiles) {
+            if (profile.getUuid().equals(activeProfile)) {
                 checkedItem = i;
                 mChosenProfile = profile;
             }
@@ -627,34 +635,23 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         final AlertDialog.Builder ab = new AlertDialog.Builder(mContext);
 
-        AlertDialog dialog = ab
-                .setTitle(R.string.global_action_choose_profile)
-                .setSingleChoiceItems(names, checkedItem, new DialogInterface.OnClickListener() {
+        AlertDialog dialog = ab.setSingleChoiceItems(names, checkedItem,
+                new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         if (which < 0)
                             return;
                         mChosenProfile = profiles[which];
+                        profileManager.setActiveProfile(mChosenProfile.getUuid());
+                        dialog.cancel();
                     }
-                })
-                .setPositiveButton(com.android.internal.R.string.yes,
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                profileManager.setActiveProfile(mChosenProfile.getUuid());
-                            }
-                        })
-                .setNegativeButton(com.android.internal.R.string.no,
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.cancel();
-                            }
                 }).create();
         dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
         dialog.show();
     }
 
     /**
-     * functions needed for taking screenhots.  
-     * This leverages the built in ICS screenshot functionality 
+     * functions needed for taking screenhots.
+     * This leverages the built in ICS screenshot functionality
      */
     final Object mScreenshotLock = new Object();
     ServiceConnection mScreenshotConnection = null;
@@ -709,14 +706,14 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                             msg.arg1 = 1;
                         if (mNavigationBar != null && mNavigationBar.isVisibleLw())
                             msg.arg2 = 1;
-                         */                        
+                         */
 
                         /* wait for the dialog box to close */
                         try {
-                            Thread.sleep(1000); 
+                            Thread.sleep(1000);
                         } catch (InterruptedException ie) {
                         }
-                        
+
                         /* take the screenshot */
                         try {
                             messenger.send(msg);
@@ -727,7 +724,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                 @Override
                 public void onServiceDisconnected(ComponentName name) {}
             };
-            if (mContext.bindService(intent, conn, Context.BIND_AUTO_CREATE, UserHandle.USER_CURRENT)) {
+            if (mContext.bindServiceAsUser(intent, conn, Context.BIND_AUTO_CREATE, UserHandle.CURRENT)) {
                 mScreenshotConnection = conn;
                 mHandler.postDelayed(mScreenshotTimeout, 10000);
             }
@@ -742,7 +739,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         mDialog.setTitle(R.string.global_actions);
 
-        if (SHOW_SILENT_TOGGLE) {
+        if (mShowSilentToggle) {
             IntentFilter filter = new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION);
             mContext.registerReceiver(mRingerModeReceiver, filter);
         }
@@ -759,8 +756,13 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     /** {@inheritDoc} */
     public void onDismiss(DialogInterface dialog) {
-        if (SHOW_SILENT_TOGGLE) {
-            mContext.unregisterReceiver(mRingerModeReceiver);
+        if (mShowSilentToggle) {
+            try {
+                mContext.unregisterReceiver(mRingerModeReceiver);
+            } catch (IllegalArgumentException ie) {
+                // ignore this
+                Log.w(TAG, ie);
+            }
         }
     }
 
@@ -957,9 +959,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         abstract public void onPress();
 
         public View create(Context context, View convertView, ViewGroup parent, LayoutInflater inflater) {
-            View v = (convertView != null) ?
-                    convertView :
-                    inflater.inflate(R.layout.global_actions_item, parent, false);
+            View v = inflater.inflate(R.layout.global_actions_item, parent, false);
 
             ImageView icon = (ImageView) v.findViewById(R.id.icon);
             TextView messageView = (TextView) v.findViewById(R.id.message);

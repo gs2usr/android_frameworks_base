@@ -69,6 +69,7 @@ public class KeyButtonView extends ImageView {
     int mGlowWidth, mGlowHeight;
     int mDurationSpeedOn = 500;
     int mDurationSpeedOff = 50;
+    float mCustomGlowScale = GLOW_MAX_SCALE_FACTOR;
     float mGlowAlpha = 0f, mGlowScale = 1f, mDrawingAlpha = 1f, mOldDrawingAlpha = 1f;
     boolean mSupportsLongpress = true;
     boolean mShouldTintIcons = true;
@@ -78,6 +79,10 @@ public class KeyButtonView extends ImageView {
 
     private ColorUtils.ColorSettingInfo mLastButtonColor;
     private ColorUtils.ColorSettingInfo mLastGlowColor;
+
+    private Handler mHandler = new Handler();
+    private SettingsObserver mSettingsObserver;
+    private boolean mAttached = false;
 
     Runnable mCheckLongPress = new Runnable() {
         public void run() {
@@ -110,7 +115,7 @@ public class KeyButtonView extends ImageView {
                 defStyle, 0);
 
         mCode = a.getInteger(R.styleable.KeyButtonView_keyCode, 0);
-        
+
         mSupportsLongpress = a.getBoolean(R.styleable.KeyButtonView_keyRepeat, true);
 
         mGlowBG = a.getDrawable(R.styleable.KeyButtonView_glowBackground);
@@ -119,13 +124,11 @@ public class KeyButtonView extends ImageView {
             mGlowWidth = mGlowBG.getIntrinsicWidth();
             mGlowHeight = mGlowBG.getIntrinsicHeight();
         }
-        
+
         a.recycle();
 
         setClickable(true);
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
-        SettingsObserver settingsObserver = new SettingsObserver(new Handler());
-        settingsObserver.observe();
 
         // Only watch for per app color changes when the setting is in check
         if (ColorUtils.getPerAppColorState(mContext)) {
@@ -151,13 +154,35 @@ public class KeyButtonView extends ImageView {
         }
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+
+        if (!mAttached) {
+            mAttached = true;
+            mSettingsObserver = new SettingsObserver(new Handler());
+            mSettingsObserver.observe();
+            updateSettings();
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+
+        if (mAttached) {
+            getContext().getContentResolver().unregisterContentObserver(mSettingsObserver);
+            mAttached = false;
+        }
+    }
+
     private void updateButtonColor() {
         ColorUtils.ColorSettingInfo colorInfo = ColorUtils.getColorSettingInfo(mContext,
                 Settings.System.NAV_BUTTON_COLOR);
         if (!colorInfo.lastColorString.equals(mLastButtonColor.lastColorString)) {
             if (colorInfo.isLastColorNull) {
-                SettingsObserver settingsObserver = new SettingsObserver(new Handler());
-                settingsObserver.observe();
+                mSettingsObserver = new SettingsObserver(mHandler);
+                mSettingsObserver.observe();
             } else {
                 setColorFilter(ColorUtils.extractRGB(colorInfo.lastColor) | 0xFF000000, PorterDuff.Mode.SRC_ATOP);
                 BUTTON_QUIESCENT_ALPHA = (float)ColorUtils.extractAlpha(colorInfo.lastColor) / 255f;
@@ -173,8 +198,8 @@ public class KeyButtonView extends ImageView {
                 Settings.System.NAV_GLOW_COLOR);
         if (!colorInfo.lastColorString.equals(mLastGlowColor.lastColorString)) {
             if (colorInfo.isLastColorNull) {
-                SettingsObserver settingsObserver = new SettingsObserver(new Handler());
-                settingsObserver.observe();
+                mSettingsObserver = new SettingsObserver(mHandler);
+                mSettingsObserver.observe();
             } else {
                 mGlowBG.setColorFilter(colorInfo.lastColor, PorterDuff.Mode.SRC_ATOP);
             }
@@ -221,12 +246,8 @@ public class KeyButtonView extends ImageView {
             canvas.save();
             final int w = getWidth();
             final int h = getHeight();
-            final float aspect = (float)mGlowWidth / mGlowHeight;
-            final int drawW = (int)(h*aspect);
-            final int drawH = h;
-            final int margin = (drawW-w)/2;
             canvas.scale(mGlowScale, mGlowScale, w*0.5f, h*0.5f);
-            mGlowBG.setBounds(-margin, 0, drawW-margin, drawH);
+            mGlowBG.setBounds(0, 0, w, h);
             mGlowBG.setAlpha((int)(mDrawingAlpha * mGlowAlpha * 255));
             mGlowBG.draw(canvas);
             canvas.restore();
@@ -267,12 +288,25 @@ public class KeyButtonView extends ImageView {
         return mGlowScale;
     }
 
+    public void setCustomGlowScale (float x) {
+        mCustomGlowScale = x;
+        // GlowScale is to be calculated by the NavBar based on the number of buttons used.
+        // However, we should never let it be less than 1.0 (the size of our view) or greater
+        // than GLOW_MAX_SCALE_FACTOR   209
+        if (mCustomGlowScale > GLOW_MAX_SCALE_FACTOR) {
+            mCustomGlowScale = GLOW_MAX_SCALE_FACTOR;
+        }
+        if (mCustomGlowScale < 1) {
+            mCustomGlowScale = 1.0f;
+        }
+    }
+
     public void setGlowScale(float x) {
         if (mGlowBG == null) return;
         mGlowScale = x;
         final float w = getWidth();
         final float h = getHeight();
-        if (GLOW_MAX_SCALE_FACTOR <= 1.0f) {
+        if (mCustomGlowScale <= 1.0f) {
             // this only works if we know the glow will never leave our bounds
             invalidate();
         } else {
@@ -311,14 +345,14 @@ public class KeyButtonView extends ImageView {
                 }
                 final AnimatorSet as = mPressedAnim = new AnimatorSet();
                 if (pressed) {
-                    if (mGlowScale < GLOW_MAX_SCALE_FACTOR) 
-                        mGlowScale = GLOW_MAX_SCALE_FACTOR;
+                    if (mGlowScale < mCustomGlowScale)
+                        mGlowScale = mCustomGlowScale;
                     if (mGlowAlpha < BUTTON_QUIESCENT_ALPHA)
                         mGlowAlpha = BUTTON_QUIESCENT_ALPHA;
                     setDrawingAlpha(1f);
                     as.playTogether(
                         ObjectAnimator.ofFloat(this, "glowAlpha", 1f),
-                        ObjectAnimator.ofFloat(this, "glowScale", GLOW_MAX_SCALE_FACTOR)
+                        ObjectAnimator.ofFloat(this, "glowScale", mCustomGlowScale)
                     );
                     as.setDuration(mDurationSpeedOff);
                 } else {
@@ -416,7 +450,7 @@ public class KeyButtonView extends ImageView {
             sendEvent(action[0], action[1],
                 SystemClock.uptimeMillis());
         }
-    }   
+    }
 
     void sendEvent(int action, int flags) {
         sendEvent(action, flags, SystemClock.uptimeMillis());

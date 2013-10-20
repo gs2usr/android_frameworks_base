@@ -27,8 +27,8 @@
     <dimen name="status_bar_recents_app_icon_max_height">48dp</dimen>
 
     <!-- Size of application thumbnail -->
-    <dimen name="status_bar_recents_thumbnail_width">170dp</dimen>
-    <dimen name="status_bar_recents_thumbnail_height">150dp</dimen>
+    <dimen name="status_bar_recents_thumbnail_width">164dp</dimen>
+    <dimen name="status_bar_recents_thumbnail_height">145dp</dimen>
     <dimen name="status_bar_recents_thumbnail_bg_padding">4dp</dimen>
 
     <!-- Size of application label text -->
@@ -238,6 +238,18 @@
     <dimen name="pie_notification_row_size">16dp</dimen>
     <dimen name="pie_notification_icon_size">15dp</dimen>
 
+    <!-- Quick Settings tile geometry: top interior margin, above icon -->
+    <dimen name="qs_tile_margin_above_icon">27dp</dimen>
+    <!-- Quick Settings tile geometry: gap between icon and text -->
+    <dimen name="qs_tile_margin_below_icon">17dp</dimen>
+    <!-- Quick Settings tile geometry: icon size -->
+    <dimen name="qs_tile_icon_size">32dp</dimen>
+
+    <!-- The padding of the items of the battery cluster -->
+    <dimen name="status_bar_battery_cluster_padding">2dip</dimen>
+    <!-- The margin adjusment of the text items of the battery cluster -->
+    <dimen name="status_bar_battery_cluster_text_margin">-1dip</dimen>
+
     <dimen name="pie_snap_radius">30dp</dimen>
     <dimen name="pie_snap_thickness">6dp</dimen>
 
@@ -247,9 +259,6 @@
 
     <dimen name="pie_panel_padding">20dp</dimen>
     <!-- PIE PIE PIE PIE PIE PIE PIE PIE PIE PIE PIE PIE PIE PIE -->
-
-    <!-- Constant for hidden navbar drag handle -->
-    <dimen name="drag_handle_height">10dp</dimen>
 
     <!-- Notification Shortcuts -->
     <dimen name="notification_shortcuts_close_handle_height">26dp</dimen>
@@ -268,4 +277,27 @@
     <dimen name="navring_radius_tablet_landscape">300dp</dimen>
     <!--  Radius of NavRing in Tablet Mode Landscape -->
     <dimen name="navring_radius_tablet_portrait">300dp</dimen>
+
+    <!-- Constant for hidden navbar drag handle -->
+    <dimen name="drag_handle_height">10dp</dimen>
+
+    <!-- Constant for hidden ribbon drag handle -->
+    <dimen name="ribbon_drag_handle_height">25dp</dimen>
+
+    <!-- HALO -->
+    <dimen name="halo_bubble_size">75dp</dimen>
+    <dimen name="halo_number_size">24dp</dimen>
+    <dimen name="halo_number_icon_size">18dp</dimen>
+    <dimen name="halo_number_text_size">14sp</dimen>
+    <dimen name="halo_speech_text_size">16sp</dimen>
+    <dimen name="halo_status_text_size">16sp</dimen>
+    <dimen name="halo_speech_hpadding_short">4dp</dimen>
+    <dimen name="halo_speech_hpadding_wide">13dp</dimen>
+    <dimen name="halo_speech_vpadding_top">3dp</dimen>
+    <dimen name="halo_speech_vpadding_bottom">3dp</dimen>
+    <dimen name="halo_content_max_width">250dp</dimen>
+
+    <!-- Height of carrier label + close handle -->
+    <dimen name="weather_text_margin">56dp</dimen>
+
 </resources>

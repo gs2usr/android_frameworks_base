@@ -39,6 +39,7 @@ import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import com.android.systemui.ExpandHelper;
@@ -50,7 +51,7 @@ import com.android.systemui.statusbar.policy.NetworkController;
 import com.android.systemui.statusbar.policy.NotificationRowLayout;
 import com.android.systemui.statusbar.policy.LocationController;
 import com.android.systemui.statusbar.phone.PanelBar;
-import com.android.systemui.statusbar.phone.QuickSettingsController;
+import com.android.systemui.statusbar.phone.QuickSettings;
 import com.android.systemui.statusbar.phone.QuickSettingsContainerView;
 
 public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
@@ -67,8 +68,8 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
     boolean mHasClearableNotifications = false;
     int mNotificationCount = 0;
     NotificationPanelTitle mTitleArea;
-    View mSettingsButton;
-    View mNotificationButton;
+    ImageView mSettingsButton;
+    ImageView mNotificationButton;
     View mNotificationScroller;
     ViewGroup mContentFrame;
     Rect mContentArea = new Rect();
@@ -85,10 +86,10 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
     Choreographer mChoreo = new Choreographer();
 
     QuickSettingsContainerView mSettingsContainer;
-    QuickSettingsController mQS;
+    QuickSettings mQS;
 
     public QuickSettingsCallback mCallback;
-    private TilesChangedObserver mTilesChangedObserver;
+//    private TilesChangedObserver mTilesChangedObserver;
 
     // Simple callback used to provide a bar to QuickSettings
     class QuickSettingsCallback extends PanelBar {
@@ -126,8 +127,8 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
         mTitleArea = (NotificationPanelTitle) findViewById(R.id.title_area);
         mTitleArea.setPanel(this);
 
-        mSettingsButton = findViewById(R.id.settings_button);
-        mNotificationButton = findViewById(R.id.notification_button);
+        mSettingsButton = (ImageView) findViewById(R.id.settings_button);
+        mNotificationButton = (ImageView) findViewById(R.id.notification_button);
 
         mNotificationScroller = findViewById(R.id.notification_scroller);
         mContentFrame = (ViewGroup)findViewById(R.id.content_frame);
@@ -354,14 +355,15 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
         mSettingsView.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
-    public void setupQuickSettings(BaseStatusBar statusBar, NetworkController networkController,
+/**    public void setupQuickSettings(BaseStatusBar statusBar, NetworkController networkController,
             BluetoothController bluetoothController, BatteryController batteryController,
             LocationController locationController) {
         mCallback = new QuickSettingsCallback(mContext, null);
         mCallback.setStatusBar(mBar);
         // Add Quick Settings
         mSettingsContainer = (QuickSettingsContainerView)mSettingsView.findViewById(R.id.quick_settings_container);
-        mQS = new QuickSettingsController(mContext, mSettingsContainer, statusBar);
+        mQS = new QuickSettings(mContext, mSettingsContainer, statusBar,
+                        Settings.System.QUICK_SETTINGS_TILES);
         mQS.setService(statusBar);
         mQS.setBar(mCallback);
         mQS.setupQuickSettings();
@@ -369,7 +371,7 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
         // Start observing for changes
         mTilesChangedObserver = new TilesChangedObserver(statusBar.getHandler());
         mTilesChangedObserver.startObserving();
-    }
+    } */
 
     // NB: it will be invisible until you show it
     void addSettingsView() {
@@ -502,7 +504,7 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
      *  ContentObserver to watch for Quick Settings tiles changes
      * @author dvtonder
      *
-     */
+     *
     private class TilesChangedObserver extends ContentObserver {
         public TilesChangedObserver(Handler handler) {
             super(handler);
@@ -523,7 +525,7 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
         public void startObserving() {
             final ContentResolver cr = mContext.getContentResolver();
             cr.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.QUICK_SETTINGS),
+                    Settings.System.getUriFor(Settings.System.QUICK_SETTINGS_TILES),
                     false, this);
 
             cr.registerContentObserver(
@@ -546,6 +548,15 @@ public class NotificationPanel extends RelativeLayout implements StatusBarPanel,
                     Settings.System.getUriFor(Settings.System.QS_DYNAMIC_WIFI),
                     false, this);
         }
+    } */
+
+    public void refreshLayout(int layoutDirection) {
+        // Force asset reloading
+        mSettingsButton.setImageDrawable(null);
+        mSettingsButton.setImageResource(R.drawable.ic_notify_settings);
+
+        // Force asset reloading
+        mNotificationButton.setImageDrawable(null);
+        mNotificationButton.setImageResource(R.drawable.ic_notifications);
     }
 }
-

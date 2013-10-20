@@ -51,7 +51,7 @@ public final class LocationBlacklist extends ContentObserver {
     private String[] mBlacklist = new String[0];
 
     private int mCurrentUserId = UserHandle.USER_OWNER;
-    
+
     public LocationBlacklist(Context context, Handler handler) {
         super(handler);
         mContext = context;
@@ -67,9 +67,9 @@ public final class LocationBlacklist extends ContentObserver {
 
     private void reloadBlacklistLocked() {
         mWhitelist = getStringArrayLocked(WHITELIST_CONFIG_NAME);
-        Slog.i(TAG, "whitelist: " + Arrays.toString(mWhitelist));
+        if (D) Slog.d(TAG, "whitelist: " + Arrays.toString(mWhitelist));
         mBlacklist = getStringArrayLocked(BLACKLIST_CONFIG_NAME);
-        Slog.i(TAG, "blacklist: " + Arrays.toString(mBlacklist));
+        if (D) Slog.d(TAG, "blacklist: " + Arrays.toString(mBlacklist));
     }
 
     private void reloadBlacklist() {

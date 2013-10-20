@@ -18,6 +18,7 @@
 -->
 <resources>
     <drawable name="notification_number_text_color">#ffffffff</drawable>
+    <drawable name="notification_item_background_color">#ff111111</drawable>
     <drawable name="ticker_background_color">#ff1d1d1d</drawable>
     <drawable name="status_bar_background">#ff000000</drawable>
     <color name="notification_panel_solid_background">#ff000000</color>
@@ -42,6 +43,14 @@
     <color name="pie_menu_background">#C0000000</color>
     <!-- Notification Shortcuts -->
     <drawable name="notification_shortcut_background_color">#00000000</drawable>
-    <drawable name="notification_item_background_color">#ff111111</drawable>
     <drawable name="notification_item_background_color_pressed">#ff257390</drawable>
+
+    <!-- Halo colors -->
+    <color name="halo_ping_color">#ff33b5e5</color>
+    <color name="halo_text_color">#ffffffff</color>
+
+    <!-- app sidebar trigger region color -->
+    <color name="trigger_region_color">#8015a0e5</color>
+
+    <color name="qs_user_banner_background">#CC000000</color>
 </resources>

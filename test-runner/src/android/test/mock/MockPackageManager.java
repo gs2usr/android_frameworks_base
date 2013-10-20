@@ -81,6 +81,13 @@ public class MockPackageManager extends PackageManager {
         throw new UnsupportedOperationException();
     }
 
+    /** @hide */
+    @Override
+    public int getPackageUid(String packageName, int userHandle)
+            throws NameNotFoundException {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public PermissionInfo getPermissionInfo(String name, int flags)
     throws NameNotFoundException {
@@ -136,6 +143,12 @@ public class MockPackageManager extends PackageManager {
 
     @Override
     public List<PackageInfo> getInstalledPackages(int flags) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<PackageInfo> getPackagesHoldingPermissions(String[] permissions,
+            int flags) {
         throw new UnsupportedOperationException();
     }
 
@@ -489,6 +502,16 @@ public class MockPackageManager extends PackageManager {
 
     @Override
     public int getApplicationEnabledSetting(String packageName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setHwuiSetting(String packageName, boolean enabled) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean getHwuiSetting(String packageName) {
         throw new UnsupportedOperationException();
     }
 

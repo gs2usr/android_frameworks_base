@@ -2,16 +2,16 @@
 **
 ** Copyright 2007, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -37,8 +37,8 @@ public final class AttributeCache {
     private static AttributeCache sInstance = null;
 
     private final Context mContext;
-    private final SparseArray<WeakHashMap<String, Package>> mPackages =
-            new SparseArray<WeakHashMap<String, Package>>();
+    private final WeakHashMap<String, Package> mPackages =
+            new WeakHashMap<String, Package>();
     private final Configuration mConfiguration = new Configuration();
 
     public final static class Package {
@@ -77,9 +77,7 @@ public final class AttributeCache {
 
     public void removePackage(String packageName) {
         synchronized (this) {
-            for (int i=0; i<mPackages.size(); i++) {
-                mPackages.valueAt(i).remove(packageName);
-            }
+            mPackages.remove(packageName);
         }
     }
 
@@ -97,20 +95,9 @@ public final class AttributeCache {
         }
     }
 
-    public void removeUser(int userId) {
+    public Entry get(String packageName, int resId, int[] styleable, int userId) {
         synchronized (this) {
-            mPackages.remove(userId);
-        }
-    }
-
-    public Entry get(int userId, String packageName, int resId, int[] styleable) {
-        synchronized (this) {
-            WeakHashMap<String, Package> packages = mPackages.get(userId);
-            if (packages == null) {
-                packages = new WeakHashMap<String, Package>();
-                mPackages.put(userId, packages);
-            }
-            Package pkg = packages.get(packageName);
+            Package pkg = mPackages.get(packageName);
             HashMap<int[], Entry> map = null;
             Entry ent = null;
             if (pkg != null) {
@@ -133,14 +120,14 @@ public final class AttributeCache {
                     return null;
                 }
                 pkg = new Package(context);
-                packages.put(packageName, pkg);
+                mPackages.put(packageName, pkg);
             }
-            
+
             if (map == null) {
                 map = new HashMap<int[], Entry>();
                 pkg.mMap.put(resId, map);
             }
-            
+
             try {
                 ent = new Entry(pkg.context,
                         pkg.context.obtainStyledAttributes(resId, styleable));
@@ -148,7 +135,7 @@ public final class AttributeCache {
             } catch (Resources.NotFoundException e) {
                 return null;
             }
-            
+
             return ent;
         }
     }

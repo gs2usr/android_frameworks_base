@@ -30,7 +30,7 @@
     <integer name="def_screen_brightness">102</integer>
     <bool name="def_screen_brightness_automatic_mode">false</bool>
     <fraction name="def_window_animation_scale">100%</fraction>
-    <fraction name="def_window_transition_scale">100%</fraction>
+    <fraction name="def_window_transition_scale">50%</fraction>
     <bool name="def_haptic_feedback">true</bool>
 
     <bool name="def_bluetooth_on">false</bool>
@@ -43,8 +43,6 @@
     -->
     <string name="def_location_providers_allowed" translatable="false">gps</string>
     <bool name="assisted_gps_enabled">true</bool>
-    <!--  0 == mobile, 1 == wifi. -->
-    <integer name="def_network_preference">1</integer>
     <bool name="def_netstats_enabled">true</bool>
     <bool name="def_usb_mass_storage_enabled">true</bool>
     <bool name="def_wifi_on">false</bool>
@@ -53,7 +51,7 @@
     <bool name="def_networks_available_notification_on">true</bool>
 
     <bool name="def_backup_enabled">false</bool>
-    <string name="def_backup_transport">com.google.android.backup/.BackupTransportService</string> 
+    <string name="def_backup_transport" translatable="false">android/com.android.internal.backup.LocalTransport</string>
 
     <!-- Default value for whether or not to pulse the notification LED when there is a
          pending notification -->
@@ -77,8 +75,13 @@
     <string name="def_unlock_sound" translatable="false">/system/media/audio/ui/Unlock.ogg</string>
     <string name="def_wireless_charging_started_sound" translatable="false">/system/media/audio/ui/WirelessChargingStarted.ogg</string>
 
+    <bool name="def_power_notifications_enabled">false</bool>
+    <bool name="def_power_notifications_vibrate">false</bool>
+    <string name="def_power_notifications_ringtone" translatable="false">content://settings/system/notification_sound</string>
+
     <bool name="def_lockscreen_disabled">false</bool>
     <bool name="def_device_provisioned">false</bool>
+    <integer name="def_dock_audio_media_enabled">1</integer>
 
     <!-- Notifications use ringer volume -->
     <bool name="def_notifications_use_ring_volume">true</bool>
@@ -170,6 +173,37 @@
     <!-- Default for Settings.Secure.USER_SETUP_COMPLETE -->
     <bool name="def_user_setup_complete">false</bool>
 
-    <!-- Default for Settings.System.STATUS_BAR_BATTERY -->
+    <!-- Default for Settings.System.STATUSBAR_BATTERY_ICON.
+    0. Icon
+    1. Text only
+    2. Icon with text
+    3. Icon with centered text
+    4. Circle mod (AOKPs)
+    5. Circle mod (CMs)
+    6. Gauge
+    7. Axiom honeycomb
+    8. Axiom droid
+    9. Axiomsphere
+    10. Numbers
+    11. Digital numbers
+    12. None/Hidden -->
     <integer name="def_battery_style">0</integer>
+
+    <!-- Default for Settings.System.STATUS_BAR_NOTIF_COUNT. -->
+   <integer name="def_notif_count">0</integer>
+
+    <!-- Default for Settings.System.QS_QUICK_PULLDOWN.
+    0. Off
+    1. Right
+    2. Left -->
+    <integer name="def_qs_quick_pulldown">0</integer>
+
+    <!-- Default for Settings.System.LOCKSCREEN_TARGETS. -->
+    <string name="def_lockscreen_targets" translatable="false"></string>
+
+    <!-- Default for Settings.System.UI_FORCE_OVERFLOW_BUTTON. -->
+    <integer name="def_force_overflow_button">0</integer>
+
+    <!-- Default for Settings.Secure.DIALPAD_AUTOCOMPLETE. -->
+    <integer name="def_dialpad_autocomplete">1</integer>
 </resources>

@@ -16,6 +16,9 @@
 
 package com.android.server;
 
+import android.app.IActivityController;
+import android.os.Binder;
+import android.os.RemoteException;
 import com.android.server.am.ActivityManagerService;
 import com.android.server.power.PowerManagerService;
 
@@ -29,6 +32,7 @@ import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.os.Debug;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.ServiceManager;
@@ -87,10 +91,12 @@ public class Watchdog extends Thread {
     AlarmManagerService mAlarm;
     ActivityManagerService mActivity;
     boolean mCompleted;
-    boolean mForceKillSystem;
     Monitor mCurrentMonitor;
 
     int mPhonePid;
+    IActivityController mController;
+    boolean mAllowRestart = true;
+    int mActivityControllerPid;
 
     final Calendar mCalendar = Calendar.getInstance();
     int mMinScreenOff = MEMCHECK_DEFAULT_MIN_SCREEN_OFF;
@@ -114,6 +120,10 @@ public class Watchdog extends Thread {
      * Used for scheduling monitor callbacks and checking memory usage.
      */
     final class HeartbeatHandler extends Handler {
+        HeartbeatHandler(Looper looper) {
+            super(looper);
+        }
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -130,7 +140,9 @@ public class Watchdog extends Thread {
 
                     final int size = mMonitors.size();
                     for (int i = 0 ; i < size ; i++) {
-                        mCurrentMonitor = mMonitors.get(i);
+                        synchronized (Watchdog.this) {
+                            mCurrentMonitor = mMonitors.get(i);
+                        }
                         mCurrentMonitor.monitor();
                     }
 
@@ -183,7 +195,9 @@ public class Watchdog extends Thread {
 
     private Watchdog() {
         super("watchdog");
-        mHandler = new HeartbeatHandler();
+        // Explicitly bind the HeartbeatHandler to run on the ServerThread, so
+        // that it can't get accidentally bound to another thread.
+        mHandler = new HeartbeatHandler(Looper.getMainLooper());
     }
 
     public void init(Context context, BatteryService battery,
@@ -212,6 +226,21 @@ public class Watchdog extends Thread {
             if ("com.android.phone".equals(name)) {
                 mPhonePid = pid;
             }
+            else if ("ActivityController".equals(name)) {
+                     mActivityControllerPid = pid;
+            }
+        }
+    }
+
+    public void setActivityController(IActivityController controller) {
+        synchronized (this) {
+            mController = controller;
+        }
+    }
+
+    public void setAllowRestart(boolean allowRestart) {
+        synchronized (this) {
+            mAllowRestart = allowRestart;
         }
     }
 
@@ -381,6 +410,9 @@ public class Watchdog extends Thread {
             mCompleted = false;
             mHandler.sendEmptyMessage(MONITOR);
 
+
+            final String name;
+            final boolean allowRestart;
             synchronized (this) {
                 long timeout = TIME_TO_WAIT;
 
@@ -389,16 +421,16 @@ public class Watchdog extends Thread {
                 // to timeout on is asleep as well and won't have a chance to run, causing a false
                 // positive on when to kill things.
                 long start = SystemClock.uptimeMillis();
-                while (timeout > 0 && !mForceKillSystem) {
+                while (timeout > 0) {
                     try {
-                        wait(timeout);  // notifyAll() is called when mForceKillSystem is set
+                        wait(timeout);
                     } catch (InterruptedException e) {
                         Log.wtf(TAG, e);
                     }
                     timeout = TIME_TO_WAIT - (SystemClock.uptimeMillis() - start);
                 }
 
-                if (mCompleted && !mForceKillSystem) {
+                if (mCompleted) {
                     // The monitors have returned.
                     waitedHalf = false;
                     continue;
@@ -414,19 +446,21 @@ public class Watchdog extends Thread {
                     waitedHalf = true;
                     continue;
                 }
+
+                name = (mCurrentMonitor != null) ?
+                    mCurrentMonitor.getClass().getName() : "null";
+                allowRestart = mAllowRestart;
             }
 
             // If we got here, that means that the system is most likely hung.
             // First collect stack traces from all threads of the system process.
             // Then kill this process so that the system will restart.
-
-            final String name = (mCurrentMonitor != null) ?
-                    mCurrentMonitor.getClass().getName() : "null";
             EventLog.writeEvent(EventLogTags.WATCHDOG, name);
 
             ArrayList<Integer> pids = new ArrayList<Integer>();
             pids.add(Process.myPid());
             if (mPhonePid > 0) pids.add(mPhonePid);
+            if (mActivityControllerPid > 0) pids.add(mActivityControllerPid);
             // Pass !waitedHalf so that just in case we somehow wind up here without having
             // dumped the halfway stacks, we properly re-initialize the trace file.
             final File stack = ActivityManagerService.dumpStackTraces(
@@ -451,6 +485,21 @@ public class Watchdog extends Thread {
                 Slog.e(TAG, e.getMessage());
             }
 
+            String tracesPath = SystemProperties.get("dalvik.vm.stack-trace-file", null);
+            if (tracesPath != null && tracesPath.length() != 0) {
+                File traceRenameFile = new File(tracesPath);
+                String newTracesPath;
+                int lpos = tracesPath.lastIndexOf (".");
+                if (-1 != lpos)
+                    newTracesPath = tracesPath.substring (0, lpos) + "_SystemServer_WDT" + tracesPath.substring (lpos);
+                else
+                    newTracesPath = tracesPath + "_SystemServer_WDT";
+                traceRenameFile.renameTo(new File(newTracesPath));
+                tracesPath = newTracesPath;
+            }
+
+            final File newFd = new File(tracesPath);
+
             // Try to add the error to the dropbox, but assuming that the ActivityManager
             // itself may be deadlocked.  (which has happened, causing this statement to
             // deadlock and the watchdog as a whole to be ineffective)
@@ -458,7 +507,7 @@ public class Watchdog extends Thread {
                     public void run() {
                         mActivity.addErrorToDropBox(
                                 "watchdog", null, "system_server", null, null,
-                                name, null, stack, null);
+                                name, null, newFd, null);
                     }
                 };
             dropboxThread.start();
@@ -466,13 +515,34 @@ public class Watchdog extends Thread {
                 dropboxThread.join(2000);  // wait up to 2 seconds for it to return.
             } catch (InterruptedException ignored) {}
 
+            IActivityController controller;
+            synchronized (this) {
+                controller = mController;
+            }
+            if (controller != null) {
+                Slog.i(TAG, "Reporting stuck state to activity controller");
+                try {
+                    Binder.setDumpDisabled("Service dumps disabled due to hung system process.");
+                    // 1 = keep waiting, -1 = kill system
+                    int res = controller.systemNotResponding(name);
+                    if (res >= 0) {
+                        Slog.i(TAG, "Activity controller requested to coninue to wait");
+                        waitedHalf = false;
+                        continue;
+                    }
+                } catch (RemoteException e) {
+                }
+            }
+
             // Only kill the process if the debugger is not attached.
-            if (!Debug.isDebuggerConnected()) {
+            if (Debug.isDebuggerConnected()) {
+                Slog.w(TAG, "Debugger connected: Watchdog is *not* killing the system process");
+            } else if (!allowRestart) {
+                Slog.w(TAG, "Restart not allowed: Watchdog is *not* killing the system process");
+            } else {
                 Slog.w(TAG, "*** WATCHDOG KILLING SYSTEM PROCESS: " + name);
                 Process.killProcess(Process.myPid());
                 System.exit(10);
-            } else {
-                Slog.w(TAG, "Debugger connected: Watchdog is *not* killing the system process");
             }
 
             waitedHalf = false;

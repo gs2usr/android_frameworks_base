@@ -64,8 +64,8 @@ import java.math.BigInteger;
 
 import static com.android.internal.util.aokp.AwesomeConstants.*;
 import com.android.internal.util.aokp.BackgroundAlphaColorDrawable;
-import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.util.aokp.NavBarHelpers;
+import com.android.internal.statusbar.IStatusBarService;
 import com.android.systemui.R;
 import com.android.systemui.aokp.AwesomeAction;
 import com.android.systemui.recent.RecentsActivity.NavigationCallback;
@@ -85,12 +85,17 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
 
     final static boolean ANIMATE_HIDE_TRANSITION = false; // turned off because it introduces unsightly delay when videos goes to full screen
 
+    private OnClickListener mRecentsClickListener;
+    private OnTouchListener mRecentsPreloadListener;
+    private OnTouchListener mHomeSearchActionListener;
+
     protected IStatusBarService mBarService;
     final Display mDisplay;
     View mCurrentView = null;
     View[] mRotatedViews = new View[4];
 
-    int mBarSize;
+    float mButtonWidth, mMenuWidth;
+    float mGlowScale = 1.8f;
     boolean mVertical;
     boolean mScreenOn;
 
@@ -100,18 +105,18 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
     boolean mHidden, mLowProfile, mShowMenu;
     int mDisabledFlags = 0;
     int mNavigationIconHints = 0;
-
     private Drawable mBackIcon, mBackLandIcon, mBackAltIcon, mBackAltLandIcon,
             mRecentsIcon, mRecentsLandIcon, mRecentsAltIcon, mRecentsAltLandIcon;
     private boolean mMenuArrowKeys;
     private boolean mColorAllIcons;
-    
+
     public DelegateViewHelper mDelegateHelper;
     private BaseStatusBar mBar;
     private SettingsObserver mSettingsObserver;
     private Context mContext;
-    private Canvas mCurrentCanvas;
-    private Canvas mNewCanvas;
+    private Canvas mCurrentCanvas, mNewCanvas;
+    private Bitmap mCurrentBitmap, mNewBitmap;
+    private BitmapDrawable mCurrentBitmapDrawable, mNewBitmapDrawable;
     private TransitionDrawable mTransition;
     private ColorUtils.ColorSettingInfo mLastBackgroundColor;
 
@@ -176,7 +181,6 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
     public int mSystemUiLayout = ExtendedPropertiesUtils.getActualProperty("com.android.systemui.layout");
     private int mMenuVisbility;
     private int mMenuLocation;
-    private boolean mHasBigMenuButton = false;
 
     private class H extends Handler {
         public void handleMessage(Message m) {
@@ -249,6 +253,30 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
         return mCurrentView.findViewById(R.id.home);
     }
 
+    protected void setListener(OnClickListener RecentsClickListener, OnTouchListener RecentsPreloadListener, OnTouchListener HomeSearchActionListener) {
+        mRecentsClickListener = RecentsClickListener;
+        mRecentsPreloadListener = RecentsPreloadListener;
+        mHomeSearchActionListener = HomeSearchActionListener;
+    }
+
+    protected void toggleButtonListener(boolean enable) {
+        View recentView = getRecentsButton();
+        if (recentView != null) {
+            recentView.setOnClickListener(enable ? mRecentsClickListener : null);
+            recentView.setOnTouchListener(enable ? mRecentsPreloadListener : null);
+        }
+        View homeView = getHomeButton();
+        // We cannot remove home button, so no need to null-check
+        homeView.setOnTouchListener(enable ? mHomeSearchActionListener : null);
+    }
+
+    private void setButtonWithTagVisibility(String string, int visibility) {
+        View findView = mCurrentView.findViewWithTag(string);
+        if (findView != null) {
+            findView.setVisibility(visibility);
+        }
+    }
+
     // for when home is disabled, but search isn't
     public View getSearchLight() {
         return mCurrentView.findViewById(R.id.search_light);
@@ -274,15 +302,20 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 ServiceManager.getService(Context.STATUS_BAR_SERVICE));
 
         final Resources res = mContext.getResources();
-        mBarSize = res.getDimensionPixelSize(R.dimen.navigation_bar_size);
         mVertical = false;
         mShowMenu = false;
         mDelegateHelper = new DelegateViewHelper(this);
+        updateResources();
+    }
 
+    protected void updateResources() {
+        final Resources res = mContext.getResources();
         mBackIcon = NavBarHelpers.getIconImage(mContext, AwesomeConstant.ACTION_BACK.value());
         mBackLandIcon = res.getDrawable(R.drawable.ic_sysbar_back_land);
         mBackAltIcon = ((KeyButtonView)generateKey(false, KEY_BACK_ALT)).getDrawable(); //res.getDrawable(R.drawable.ic_sysbar_back_ime);
         mBackAltLandIcon = ((KeyButtonView)generateKey(true, KEY_BACK_ALT)).getDrawable(); // res.getDrawable(R.drawable.ic_sysbar_back_ime);
+        mButtonWidth = res.getDimensionPixelSize(R.dimen.navigation_key_width);
+        mMenuWidth = res.getDimensionPixelSize(R.dimen.navigation_menu_key_width);
         mRecentsIcon = res.getDrawable(R.drawable.ic_sysbar_recent);
         mRecentsLandIcon = res.getDrawable(R.drawable.ic_sysbar_recent_land);
         mRecentsAltIcon = res.getDrawable(R.drawable.ic_sysbar_recent_clear);
@@ -292,18 +325,22 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
         if (ColorUtils.getPerAppColorState(mContext)) {
 
             // Reset all colors
-            Bitmap currentBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            mCurrentCanvas = new Canvas(currentBitmap);
+            mCurrentBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            mCurrentCanvas = new Canvas(mCurrentBitmap);
             mCurrentCanvas.drawColor(0xFF000000);
-            BitmapDrawable currentBitmapDrawable = new BitmapDrawable(currentBitmap);
+            mCurrentBitmapDrawable = new BitmapDrawable(mCurrentBitmap);
 
-            Bitmap newBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            mNewCanvas = new Canvas(newBitmap);
+            mNewBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            mNewCanvas = new Canvas(mNewBitmap);
             mNewCanvas.drawColor(0xFF000000);
-            BitmapDrawable newBitmapDrawable = new BitmapDrawable(newBitmap);
+            mNewBitmapDrawable = new BitmapDrawable(mNewBitmap);
 
-            mTransition = new TransitionDrawable(new Drawable[]{currentBitmapDrawable, newBitmapDrawable});        
+            mTransition = new TransitionDrawable(new Drawable[]{mCurrentBitmapDrawable, mNewBitmapDrawable});
             setBackground(mTransition);
+
+            if (mSystemUiLayout >= 1000) {
+                mNewCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+            }
 
             mLastBackgroundColor = ColorUtils.getColorSettingInfo(mContext, Settings.System.NAV_BAR_COLOR);
             updateColor();
@@ -317,23 +354,29 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
         }
     }
 
+    boolean firstLayerFront = true;
     private void updateColor() {
         ColorUtils.ColorSettingInfo colorInfo = ColorUtils.getColorSettingInfo(mContext,
                 Settings.System.NAV_BAR_COLOR);
 
         if (!colorInfo.lastColorString.equals(mLastBackgroundColor.lastColorString)) {
-            // Only enable crossfade for transparent backdrops
+
             mTransition.setCrossFadeEnabled(!colorInfo.isLastColorOpaque);
 
-            // Clear first layer, paint current color, reset mTransition to first layer
-            mCurrentCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-            mCurrentCanvas.drawColor(mLastBackgroundColor.lastColor);
-            mTransition.resetTransition();
+            if (firstLayerFront) {
+                mNewCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                if (mSystemUiLayout < 1000) {
+                    mNewCanvas.drawColor(colorInfo.lastColor);
+                }
+            } else {
+                mCurrentCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                if (mSystemUiLayout < 1000) {
+                    mCurrentCanvas.drawColor(colorInfo.lastColor);
+                }
+            }
 
-            // Clear second layer, paint new color, start mTransition
-            mNewCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-            mNewCanvas.drawColor(colorInfo.lastColor);
-            mTransition.startTransition(colorInfo.speed);
+            mTransition.reverseTransition(colorInfo.speed);
+            firstLayerFront = !firstLayerFront;
 
             // Remember color for later
             mLastBackgroundColor = colorInfo;
@@ -359,7 +402,6 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                     .findViewById(R.id.lights_out));
 
             // Add the Main Nav Buttons
-            mHasBigMenuButton = false;
             String iconUri = "";
             for (int j = 0; j < mNumberOfButtons; j++) {
                 ExtensibleKeyButtonView v = generateKey(landscape, mClickActions[j],
@@ -383,10 +425,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 addLightsOutButton(lightsOut, v, landscape && !mLeftyMode, false);
 
                 if (v.getId() == R.id.back){
-                	mBackIcon = mBackLandIcon = v.getDrawable();
-                }
-                if (v.getId() == R.id.navbar_menu_big){
-                    mHasBigMenuButton = true;
+                    mBackIcon = v.getDrawable();
                 }
                 if (mNumberOfButtons == 3 && j != (mNumberOfButtons - 1)) {
                     // add separator view here
@@ -423,8 +462,15 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 spacer1.setLayoutParams(getSeparatorLayoutParams(landscape));
                 navButtonLayout.addView(spacer, 0);
                 navButtonLayout.addView(spacer1);
+                View spacer2 = new View(mContext);
+                spacer2.setLayoutParams(getSeparatorLayoutParams(landscape));
+                View spacer3 = new View(mContext);
+                spacer3.setLayoutParams(getSeparatorLayoutParams(landscape));
+                lightsOut.addView(spacer2, 0);
+                lightsOut.addView(spacer3);
             }
         }
+        updateResources();
     }
 
     private void addLightsOutButton(LinearLayout root, View v, boolean landscape, boolean empty) {
@@ -457,7 +503,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
 
             case KEY_MENU_RIGHT:
                 v = new KeyButtonView(mContext, null);
-                v.setLayoutParams(getLayoutParams(landscape, (mSystemUiLayout >= 1000) ? 80 : 40));
+                v.setLayoutParams(getLayoutParams(landscape, (mSystemUiLayout >= 1000) ? mButtonWidth : mMenuWidth));
 
                 v.setId(R.id.menu);
                 v.setCode(KeyEvent.KEYCODE_MENU);
@@ -476,7 +522,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 break;
             case KEY_MENU_LEFT:
                 v = new KeyButtonView(mContext, null);
-                v.setLayoutParams(getLayoutParams(landscape, (mSystemUiLayout >= 1000) ? 80 : 40));
+                v.setLayoutParams(getLayoutParams(landscape, (mSystemUiLayout >= 1000) ? mButtonWidth : mMenuWidth));
 
                 v.setId(R.id.menu_left);
                 v.setCode(KeyEvent.KEYCODE_MENU);
@@ -495,7 +541,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 break;
             case KEY_ARROW_LEFT:
                 v = new KeyButtonView(mContext, null);
-                v.setLayoutParams(getLayoutParams(landscape, 81));
+                v.setLayoutParams(getLayoutParams(landscape, mButtonWidth));
                 v.setId(KEY_ARROW_LEFT);
                 v.setCode(KeyEvent.KEYCODE_DPAD_LEFT);
                 v.setImageResource(R.drawable.ic_sysbar_ime_left);
@@ -507,7 +553,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 break;
             case KEY_ARROW_RIGHT:
                 v = new KeyButtonView(mContext, null);
-                v.setLayoutParams(getLayoutParams(landscape, 81));
+                v.setLayoutParams(getLayoutParams(landscape, mButtonWidth));
                 v.setId(KEY_ARROW_RIGHT);
                 v.setCode(KeyEvent.KEYCODE_DPAD_RIGHT);
                 v.setImageResource(R.drawable.ic_sysbar_ime_right);
@@ -519,12 +565,13 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
                 break;
             case KEY_BACK_ALT:
                 v = new KeyButtonView(mContext, null);
-                v.setLayoutParams(getLayoutParams(landscape, 80));
+                v.setLayoutParams(getLayoutParams(landscape, mButtonWidth));
                 v.setImageResource(R.drawable.ic_sysbar_back_ime);
                 v.setGlowBackground(landscape ? R.drawable.ic_sysbar_highlight_land
                         : R.drawable.ic_sysbar_highlight);
                 v.setTint(true);
         }
+        v.setCustomGlowScale(mGlowScale);
         return v;
     }
 
@@ -533,9 +580,10 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
 
         ExtensibleKeyButtonView v = new ExtensibleKeyButtonView(mContext, null,
                 clickAction, longpress);
-        v.setLayoutParams(getLayoutParams(landscape, 80));
+        v.setLayoutParams(getLayoutParams(landscape, mButtonWidth));
         v.setGlowBackground(landscape ? R.drawable.ic_sysbar_highlight_land
                 : R.drawable.ic_sysbar_highlight);
+        v.setCustomGlowScale(mGlowScale);
         return v;
     }
 
@@ -557,19 +605,21 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
         return padding;
     }
 
-    
-    private LayoutParams getLayoutParams(boolean landscape, float dp) {
-        float px = dp * getResources().getDisplayMetrics().density;
+
+    private LayoutParams getLayoutParams(boolean landscape, float px) {
         return landscape ?
                 new LayoutParams(LayoutParams.MATCH_PARENT, (int) px, 1f) :
                 new LayoutParams((int) px, LayoutParams.MATCH_PARENT, 1f);
     }
 
     private LayoutParams getSeparatorLayoutParams(boolean landscape) {
-        float px = 25 * getResources().getDisplayMetrics().density;
+        int width = (int) mMenuWidth /2 ;
+        // set the outer separator params to half the width of a menu button
+        // to keep from squeezing in on the navbar too much, but still allow
+        // some breathing room for NavGlow
         return landscape ?
-                new LayoutParams(LayoutParams.MATCH_PARENT, (int) px) :
-                new LayoutParams((int) px, LayoutParams.MATCH_PARENT);
+                new LayoutParams(LayoutParams.MATCH_PARENT, (int) width,1f) :
+                new LayoutParams((int) width, LayoutParams.MATCH_PARENT,1f);
     }
 
     public void notifyScreenOn(boolean screenOn) {
@@ -596,13 +646,36 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
     };
 
     public void setNavigationIconHints(int hints) {
-        setNavigationIconHints(NavigationCallback.NAVBAR_BACK_HINT, hints, false);
+        setNavigationIconHints(hints, false);
     }
 
     public void setNavigationIconHints(int hints, boolean force) {
-        setNavigationIconHints(NavigationCallback.NAVBAR_BACK_HINT, hints, force);
-    }
+        if (!force && hints == mNavigationIconHints) return;
 
+        if (DEBUG) {
+            android.widget.Toast.makeText(mContext,
+                "Navigation icon hints = " + hints,
+                500).show();
+        }
+
+        mNavigationIconHints = hints;
+
+        // We can't guarantee users will set these buttons as targets
+        if (getBackButton() != null) {
+            getBackButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_NOP)) ? 0.5f : 1.0f);
+            ((ImageView)getBackButton()).setImageDrawable(
+                    (0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_ALT))
+                    ? (mBackAltIcon)
+                    : (mBackIcon));
+        }
+        if (getHomeButton()!=null) {
+            getHomeButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_HOME_NOP)) ? 0.5f : 1.0f);
+        }
+        if (getRecentsButton()!=null) {
+            getRecentsButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_RECENT_NOP)) ? 0.5f : 1.0f);
+        }
+        updateMenuArrowKeys();
+    }
 
     @Override
     public void setNavigationIconHints(int button, int hints, boolean force) {
@@ -615,18 +688,35 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
         }
 
         mNavigationIconHints = hints;
-        if (getBackButton() != null) {
-            getBackButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_NOP)) ? 0.5f : 1.0f);
-            ((ImageView)getBackButton()).setImageDrawable(
-                    (0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_ALT))
-                    ? (mVertical ? mBackAltLandIcon : mBackAltIcon)
-                    : (mVertical ? mBackLandIcon : mBackIcon));
-        }
+
         if (getHomeButton()!=null) {
             getHomeButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_HOME_NOP)) ? 0.5f : 1.0f);
         }
-        if (getRecentsButton()!=null) {
-            getRecentsButton().setAlpha((0 != (hints & StatusBarManager.NAVIGATION_HINT_RECENT_NOP)) ? 0.5f : 1.0f);
+
+        View back = getBackButton();
+        if(back != null) {
+            back.setAlpha(
+                (0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_NOP)) ? 0.5f : 1.0f);
+        }
+
+        View recent = getRecentsButton();
+        if (recent != null) {
+            recent.setAlpha(
+                (0 != (hints & StatusBarManager.NAVIGATION_HINT_RECENT_NOP)) ? 0.5f : 1.0f);
+        }
+
+        if (button == NavigationCallback.NAVBAR_BACK_HINT) {
+            ((ImageView)getBackButton()).setImageDrawable(
+                (0 != (hints & StatusBarManager.NAVIGATION_HINT_BACK_ALT))
+                    ? (mVertical ? mBackAltLandIcon : mBackAltIcon)
+                    : (mVertical ? mBackLandIcon : mBackIcon));
+        } else if (button == NavigationCallback.NAVBAR_RECENTS_HINT) {
+            if (recent != null) {
+                ((ImageView)recent).setImageDrawable(
+                    (0 != (hints & StatusBarManager.NAVIGATION_HINT_RECENT_ALT))
+                        ? (mVertical ? mRecentsAltLandIcon : mRecentsAltIcon)
+                        : (mVertical ? mRecentsLandIcon : mRecentsIcon));
+            }
         }
         updateMenuArrowKeys();
     }
@@ -684,8 +774,11 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
 
             }
         }
-     // if Home is to be shown, then we hide the Searchlight.
-        getSearchLight().setVisibility((isKeyguardEnabled()&& disableHome) ? View.VISIBLE : View.GONE);
+        if (mSystemUiLayout >= 1000) { // hide the Searchlight in Tabletmode.
+            getSearchLight().setVisibility(View.GONE);
+        } else { // if Home is to be shown, then we hide the Searchlight.
+            getSearchLight().setVisibility((isKeyguardEnabled() && disableHome) ? View.VISIBLE : View.GONE);
+        }
         if (mNavBarAutoHide && !isRotating) {
             if (isKeyguardEnabled())
                 mBar.setSearchLightOn(true);
@@ -1049,7 +1142,7 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
     @Override
     protected void onLayout (boolean changed, int left, int top, int right, int bottom) {
         if (DEBUG) Slog.d(TAG, String.format(
-                    "onLayout: %s (%d,%d,%d,%d)", 
+                    "onLayout: %s (%d,%d,%d,%d)",
                     changed?"changed":"notchanged", left, top, right, bottom));
         super.onLayout(changed, left, top, right, bottom);
     }
@@ -1136,7 +1229,10 @@ public class NavigationBarView extends LinearLayout implements NavigationCallbac
             Settings.System.putInt(resolver,
                     Settings.System.NAVIGATION_BAR_BUTTONS_QTY, StockButtonsQty);
         }
-
+        // I would like to figure out a way to dynamically adjust the Glowscale based on
+        // Width of the NavBar vs the number & width of the buttons, but that is proving to be
+        // difficult.  for now, we'll simply adjust the scale based on the number of buttons we have.
+        mGlowScale = 2f - (mNumberOfButtons * 0.1f);
         for (int j = 0; j < 7; j++) {
             mClickActions[j] = Settings.System.getString(resolver,
                     Settings.System.NAVIGATION_CUSTOM_ACTIVITIES[j]);

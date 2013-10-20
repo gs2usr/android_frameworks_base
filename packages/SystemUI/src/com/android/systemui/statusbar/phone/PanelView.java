@@ -16,39 +16,30 @@
 
 package com.android.systemui.statusbar.phone;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Iterator;
 
 import android.animation.ObjectAnimator;
 import android.animation.TimeAnimator;
 import android.animation.TimeAnimator.TimeListener;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
-import android.database.ContentObserver;
-import android.graphics.Point;
-import android.os.Handler;
-import android.os.IPowerManager;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.provider.Settings;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Slog;
-import android.view.Display;
 import android.view.MotionEvent;
-import android.view.VelocityTracker;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
-import android.widget.TextView;
 
 import com.android.systemui.R;
 
 public class PanelView extends FrameLayout {
     public static final boolean DEBUG = PanelBar.DEBUG;
     public static final String TAG = PanelView.class.getSimpleName();
+
+    public static final boolean DEBUG_NAN = true; // http://b/7686690
+
     public final void LOG(String fmt, Object... args) {
         if (!DEBUG) return;
         Slog.v(TAG, (mViewName != null ? (mViewName + ": ") : "") + String.format(fmt, args));
@@ -82,7 +73,7 @@ public class PanelView extends FrameLayout {
     private float mTouchOffset;
     private float mExpandedFraction = 0;
     private float mExpandedHeight = 0;
-    private boolean mJustPeeked;
+    protected boolean mJustPeeked;
     private boolean mClosing;
     private boolean mRubberbanding;
     private boolean mTracking;
@@ -158,8 +149,17 @@ public class PanelView extends FrameLayout {
                 i++;
             }
             if (j != 0) {
-                mVX /= totalweight;
-                mVY /= totalweight;
+                if (totalweight > 0) {
+                    mVX /= totalweight;
+                    mVY /= totalweight;
+                } else {
+                    if (DEBUG_NAN) {
+                        Slog.v("FlingTracker", "computeCurrentVelocity warning: totalweight=0",
+                            new Throwable());
+                    }
+                    // so as not to contaminate the velocities with NaN
+                    mVX = mVY = 0;
+                }
             }
 
             if (FlingTracker.DEBUG) {
@@ -167,9 +167,21 @@ public class PanelView extends FrameLayout {
             }
         }
         public float getXVelocity() {
+            if (Float.isNaN(mVX)) {
+                if (DEBUG_NAN) {
+                    Slog.v("FlingTracker", "warning: vx=NaN");
+                }
+                mVX = 0;
+            }
             return mVX;
         }
         public float getYVelocity() {
+            if (Float.isNaN(mVY)) {
+                if (DEBUG_NAN) {
+                    Slog.v("FlingTracker", "warning: vx=NaN");
+                }
+                mVY = 0;
+            }
             return mVY;
         }
         public void recycle() {
@@ -212,14 +224,6 @@ public class PanelView extends FrameLayout {
     protected float mInitialTouchY;
     protected float mFinalTouchY;
 
-    // brightness slider stuff
-    private Handler mHandler = new Handler();
-    private Float mPropFactor;
-    private Integer mBrightnessValue;
-    private int lastBrightnessChanged = -1;
-    private boolean mBrightnessSliderEnabled = true;
-    private boolean mShouldReactToBrightnessSlider = false;
-
     public void setRubberbandingEnabled(boolean enable) {
         mRubberbandingEnabled = enable;
     }
@@ -230,7 +234,7 @@ public class PanelView extends FrameLayout {
             return;
         }
         if (mPeekAnimator == null) {
-            mPeekAnimator = ObjectAnimator.ofFloat(this, 
+            mPeekAnimator = ObjectAnimator.ofFloat(this,
                     "expandedHeight", mPeekHeight)
                 .setDuration(250);
         }
@@ -310,6 +314,9 @@ public class PanelView extends FrameLayout {
                     || ((mRubberbanding || !mClosing) && mExpandedHeight == fh)) {
                 post(mStopAnimator);
             }
+        } else {
+            Slog.v(TAG, "animationTick called with dtms=" + dtms + "; nothing to do (h="
+                    + mExpandedHeight + " v=" + mVel + ")");
         }
     }
 
@@ -340,12 +347,9 @@ public class PanelView extends FrameLayout {
 
         mFlingGestureMaxOutputVelocityPx = res.getDimension(R.dimen.fling_gesture_max_output_velocity);
 
-        mPeekHeight = res.getDimension(R.dimen.peek_height) 
+        mPeekHeight = res.getDimension(R.dimen.peek_height)
             + getPaddingBottom() // our window might have a dropshadow
             - (mHandleView == null ? 0 : mHandleView.getPaddingTop()); // the handle might have a topshadow
-
-        SettingsObserver sb = new SettingsObserver(mHandler);
-        sb.observe();
     }
 
     private void trackMovement(MotionEvent event) {
@@ -385,7 +389,6 @@ public class PanelView extends FrameLayout {
 
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
-                            mShouldReactToBrightnessSlider = false;
                             mTracking = true;
                             mHandleView.setPressed(true);
                             postInvalidate(); // catch the press state change
@@ -399,29 +402,17 @@ public class PanelView extends FrameLayout {
                             if (mExpandedHeight == 0) {
                                 mJustPeeked = true;
                                 runPeekAnimation();
-                                if(mBrightnessSliderEnabled) {
-                                    mHandler.postDelayed(mSetShouldReact, 400);
-                                }
                             }
                             break;
 
                         case MotionEvent.ACTION_MOVE:
                             final float h = rawY - mAbsPos[1] - mTouchOffset;
                             if (h > mPeekHeight) {
-                                if (mPeekAnimator != null && mPeekAnimator.isRunning()) {
+                                if (mPeekAnimator != null && mPeekAnimator.isStarted()) {
                                     mPeekAnimator.cancel();
                                 }
                                 mJustPeeked = false;
-                                if(mBrightnessSliderEnabled) {
-                                    mHandler.removeCallbacks(mSetShouldReact);
-                                    mShouldReactToBrightnessSlider = false;
-                                }
                             }
-                            if(mBrightnessSliderEnabled && mTracking && mShouldReactToBrightnessSlider) {
-                                if(mPropFactor == null) setPropFactor();
-                                mBrightnessValue = checkMinMax(Math.round(event.getRawX() * mPropFactor));
-                                changeBrightness();
-                             }
                             if (!mJustPeeked) {
                                 PanelView.this.setExpandedHeightInternal(h);
                                 mBar.panelExpansionChanged(PanelView.this, mExpandedFraction);
@@ -433,7 +424,6 @@ public class PanelView extends FrameLayout {
                         case MotionEvent.ACTION_UP:
                         case MotionEvent.ACTION_CANCEL:
                             mFinalTouchY = y;
-                            mShouldReactToBrightnessSlider = false;
                             mTracking = false;
                             mHandleView.setPressed(false);
                             postInvalidate(); // catch the press state change
@@ -549,7 +539,7 @@ public class PanelView extends FrameLayout {
     public void setExpandedHeight(float height) {
         if (DEBUG) LOG("setExpandedHeight(%.1f)", height);
         mRubberbanding = false;
-        if (mTimeAnimator.isRunning()) {
+        if (mTimeAnimator.isStarted()) {
             post(mStopAnimator);
         }
         setExpandedHeightInternal(height);
@@ -563,6 +553,15 @@ public class PanelView extends FrameLayout {
     }
 
     public void setExpandedHeightInternal(float h) {
+        if (Float.isNaN(h)) {
+            // If a NaN gets in here, it will freeze the Animators.
+            if (DEBUG_NAN) {
+                Slog.v(TAG, "setExpandedHeightInternal: warning: h=NaN, using 0 instead",
+                        new Throwable());
+            }
+            h = 0;
+        }
+
         float fh = getFullHeight();
         if (fh == 0) {
             // Hmm, full height hasn't been computed yet
@@ -570,6 +569,7 @@ public class PanelView extends FrameLayout {
 
         if (h < 0) h = 0;
         if (!(mRubberbandingEnabled && (mTracking || mRubberbanding)) && h > fh) h = fh;
+
         mExpandedHeight = h;
 
         if (DEBUG) LOG("setExpansion: height=%.1f fh=%.1f tracking=%s rubber=%s", h, fh, mTracking?"T":"f", mRubberbanding?"T":"f");
@@ -592,6 +592,14 @@ public class PanelView extends FrameLayout {
     }
 
     public void setExpandedFraction(float frac) {
+        if (Float.isNaN(frac)) {
+            // If a NaN gets in here, it will freeze the Animators.
+            if (DEBUG_NAN) {
+                Slog.v(TAG, "setExpandedFraction: frac=NaN, using 0 instead",
+                        new Throwable());
+            }
+            frac = 0;
+        }
         setExpandedHeight(getFullHeight() * frac);
     }
 
@@ -640,113 +648,4 @@ public class PanelView extends FrameLayout {
             if (DEBUG) LOG("skipping expansion: is expanded");
         }
     }
-
-	private void setPropFactor() {
-		Display display = getDisplay();
-		if(display == null)
-			return;
-
-		Point outSize = new Point();
-		display.getSize(outSize);
-		mPropFactor = Float.valueOf(android.os.PowerManager.BRIGHTNESS_ON)
-				/ Float.valueOf(outSize.x);
-	}
-
-	Runnable mChangeBrightnessRunnable = new Runnable() {
-		@Override
-		public void run() {
-			if(autoBrightnessEnabled()) {
-				// do nothing if auto brightness is enabled
-			} else if(mShouldReactToBrightnessSlider) {
-				if(lastBrightnessChanged != mBrightnessValue) {
-					// only change the brightness if it's different
-					try {
-						IPowerManager pw = IPowerManager.Stub
-								.asInterface(ServiceManager.getService("power"));
-						if (pw != null && mBrightnessValue != null && mTracking) {
-							pw.setTemporaryScreenBrightnessSettingOverride(mBrightnessValue);
-						}
-					} catch (RemoteException e1) {
-					}
-					lastBrightnessChanged = mBrightnessValue;
-				}
-			}
-		}
-	};
-
-	Runnable mSetShouldReact = new Runnable() {
-		@Override
-		public void run() {
-			mShouldReactToBrightnessSlider = true;
-		}
-	};
-
-	Runnable mOnStopChangingBrightnessRunnable = new Runnable() {
-		@Override
-		public void run() {
-			mHandler.removeCallbacks(mSetShouldReact);
-			if(autoBrightnessEnabled()) {
-				// eat the auto brightness!
-			} else {
-				// don't really care what happened, but auto brightness is disabled; save the value!
-				try {
-					Settings.System.putInt(mContext.getContentResolver(),
-							Settings.System.SCREEN_BRIGHTNESS, mBrightnessValue);
-				} catch (NullPointerException e2) {
-				}
-			}
-		}
-	};
-
-	private void changeBrightness() {
-		if(mShouldReactToBrightnessSlider) {
-			mHandler.removeCallbacks(mOnStopChangingBrightnessRunnable);
-			mHandler.postDelayed(mOnStopChangingBrightnessRunnable, 500);
-			mHandler.post(mChangeBrightnessRunnable);
-		}
-	}
-
-	private int checkMinMax(int brightness) {
-        int min = 0;
-        int max = 255;
-
-        if (min > brightness) // brightness < 0x1E
-            return min;
-        else if (max < brightness) { // brightness > 0xFF
-            return max;
-        }
-
-        return brightness;
-    }
-
-	private boolean autoBrightnessEnabled() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.SCREEN_BRIGHTNESS_MODE,
-                Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
-    }
-
-	class SettingsObserver extends ContentObserver {
-        SettingsObserver(Handler handler) {
-            super(handler);
-        }
-
-        void observe() {
-            ContentResolver resolver = mContext.getContentResolver();
-            resolver.registerContentObserver(Settings.System
-                    .getUriFor(Settings.System.STATUSBAR_BRIGHTNESS_SLIDER),
-                    false, this);
-            updateSettings();
-        }
-
-        @Override
-        public void onChange(boolean selfChange) {
-            updateSettings();
-        }
-    }
-
-	private void updateSettings() {
-	    ContentResolver cr = mContext.getContentResolver();
-	    mBrightnessSliderEnabled = Settings.System.getBoolean(cr,
-	            Settings.System.STATUSBAR_BRIGHTNESS_SLIDER, true);
-	}
 }

@@ -23,17 +23,21 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.provider.Settings;
 import android.util.AttributeSet;
+import android.util.EventLog;
 import android.util.Slog;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 
+import com.android.systemui.EventLogTags;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.GestureRecorder;
 
 public class NotificationPanelView extends PanelView {
+    public static final boolean DEBUG_GESTURES = false;
 
     private static final float STATUS_BAR_SETTINGS_LEFT_PERCENTAGE = 0.8f;
     private static final float STATUS_BAR_SETTINGS_RIGHT_PERCENTAGE = 0.2f;
@@ -48,7 +52,7 @@ public class NotificationPanelView extends PanelView {
     int mFingers;
     PhoneStatusBar mStatusBar;
     boolean mOkToFlip;
-    
+
     //Variables for Notification Bar Swipe action - Switch between Notifications & Quick Settings
     float mGestureStartX;
     float mGestureStartY;
@@ -56,7 +60,7 @@ public class NotificationPanelView extends PanelView {
     float mSwipeDirection;
     boolean mTrackingSwipe;
     boolean mSwipeTriggered;
-    
+
     boolean mFastToggleEnabled;
     int mFastTogglePos;
     ContentObserver mEnableObserver;
@@ -79,9 +83,6 @@ public class NotificationPanelView extends PanelView {
         mHandleBar = resources.getDrawable(R.drawable.status_bar_close);
         mHandleBarHeight = resources.getDimensionPixelSize(R.dimen.close_handle_height);
         mHandleView = findViewById(R.id.handle);
-
-        setContentDescription(resources.getString(
-                R.string.accessibility_desc_notification_shade));
 
         final ContentResolver resolver = getContext().getContentResolver();
         mEnableObserver = new ContentObserver(mHandler) {
@@ -134,6 +135,17 @@ public class NotificationPanelView extends PanelView {
         super.fling(vel, always);
     }
 
+    @Override
+    public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            event.getText()
+                    .add(getContext().getString(R.string.accessibility_desc_notification_shade));
+            return true;
+        }
+
+        return super.dispatchPopulateAccessibilityEvent(event);
+    }
+
     // We draw the handle ourselves so that it's
     // always glued to the bottom of the window.
     @Override
@@ -159,6 +171,12 @@ public class NotificationPanelView extends PanelView {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         boolean shouldRecycleEvent = false;
+        if (DEBUG_GESTURES) {
+            if (event.getActionMasked() != MotionEvent.ACTION_MOVE) {
+                EventLog.writeEvent(EventLogTags.SYSUI_NOTIFICATIONPANEL_TOUCH,
+                       event.getActionMasked(), (int) event.getX(), (int) event.getY());
+            }
+        }
         if (PhoneStatusBar.SETTINGS_DRAG_SHORTCUT && mStatusBar.mHasFlipSettings) {
             boolean flip = false;
             boolean swipeFlipJustFinished = false;
@@ -241,15 +259,11 @@ public class NotificationPanelView extends PanelView {
                     if (y > maxy) maxy = y;
                 }
                 if (maxy - miny < mHandleBarHeight) {
-                    if (getMeasuredHeight() < mHandleBarHeight) {
+                    if (mJustPeeked || getMeasuredHeight() < mHandleBarHeight) {
                         mStatusBar.switchToSettings();
-                } else {
-                        // Do not flip if the drag event started within the top bar
-                        if (MotionEvent.ACTION_DOWN == event.getActionMasked() && event.getY(0) < mHandleBarHeight ) {
-                            mStatusBar.switchToSettings();
-                        } else {
-                            mStatusBar.flipToSettings();
-                        }
+                         mStatusBar.switchToSettings();
+                     } else {
+                        mStatusBar.flipToSettings();
                     }
                     mOkToFlip = false;
                 }
@@ -272,7 +286,7 @@ public class NotificationPanelView extends PanelView {
                     original.getPressure(0), original.getSize(0), original.getMetaState(),
                     original.getXPrecision(), original.getYPrecision(), original.getDeviceId(),
                     original.getEdgeFlags());
-                
+
                 // The following two lines looks better than the chunk of code above, but,
                 // nevertheless, doesn't work. The view is not pinned down, and may close,
                 // just after the gesture is finished.

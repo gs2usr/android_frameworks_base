@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
- * This code has been modified. Portions copyright (C) 2012, ParanoidAndroid Project.
+ *
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package com.android.systemui.statusbar.policy;
 
 import java.util.ArrayList;
 
-import android.bluetooth.BluetoothAdapter.BluetoothStateChangeCallback;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -49,17 +48,26 @@ public class BatteryController extends BroadcastReceiver {
     private boolean mPlugged;
     private ColorUtils.ColorSettingInfo mColorInfo;
 
+    // For HALO Mods
+    private ArrayList<BatteryStateChangeCallbackHalo> mChangeCallbacksHalo =
+            new ArrayList<BatteryStateChangeCallbackHalo>();
+
     public interface BatteryStateChangeCallback {
         public void onBatteryLevelChanged(int level, boolean pluggedIn);
+    }
+
+    //For HALO Mods
+    public interface BatteryStateChangeCallbackHalo {
+        public void onBatteryLevelChangedHalo(int level, boolean pluggedIn);
     }
 
     public BatteryController(Context context) {
         mContext = context;
 
-        mColorInfo = ColorUtils.getColorSettingInfo(context, Settings.System.STATUS_ICON_COLOR);
+        mColorInfo = ColorUtils.getColorSettingInfo(mContext, Settings.System.STATUS_ICON_COLOR);
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_BATTERY_CHANGED);
-        context.registerReceiver(this, filter);
+        mContext.registerReceiver(this, filter);
     }
 
     public void addIconView(ImageView v) {
@@ -74,6 +82,20 @@ public class BatteryController extends BroadcastReceiver {
         mChangeCallbacks.add(cb);
     }
 
+    public void removeStateChangedCallback(BatteryStateChangeCallback cb) {
+        mChangeCallbacks.remove(cb);
+    }
+
+    // For Halo Mods
+    public void addStateChangedCallbackHalo(BatteryStateChangeCallbackHalo cb_Halo) {
+        mChangeCallbacksHalo.add(cb_Halo);
+    }
+
+    // For Halo Mods
+    public void removeStateChangedCallbackHalo(BatteryStateChangeCallbackHalo cb_Halo) {
+        mChangeCallbacksHalo.remove(cb_Halo);
+    }
+
     public void setColor(ColorUtils.ColorSettingInfo colorInfo) {
         mColorInfo = colorInfo;
         updateBatteryLevel();
@@ -86,17 +108,22 @@ public class BatteryController extends BroadcastReceiver {
             mPlugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
             updateBatteryLevel();
         }
+
+        // For HALO Mods
+        for (BatteryStateChangeCallbackHalo cb_Halo : mChangeCallbacksHalo) {
+            cb_Halo.onBatteryLevelChangedHalo(mLevel, mPlugged);
+        }
     }
 
     public void updateBatteryLevel() {
-        final int icon = mPlugged ? R.drawable.stat_sys_battery_charge 
+        final int icon = mPlugged ? R.drawable.stat_sys_battery_charge
                 : R.drawable.stat_sys_battery;
         int N = mIconViews.size();
         for (int i=0; i<N; i++) {
             ImageView v = mIconViews.get(i);
             Drawable batteryBitmap = mContext.getResources().getDrawable(icon);
             if (mColorInfo.isLastColorNull) {
-                batteryBitmap.clearColorFilter();                
+                batteryBitmap.clearColorFilter();
             } else {
                 batteryBitmap.setColorFilter(mColorInfo.lastColor, PorterDuff.Mode.SRC_IN);
             }

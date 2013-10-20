@@ -16,9 +16,6 @@
 
 package com.android.server;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
-
 import com.android.internal.app.ThemeUtils;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -42,11 +39,16 @@ import android.os.StatFs;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.os.storage.StorageManager;
 import android.provider.Settings;
 import android.text.format.Formatter;
 import android.util.EventLog;
 import android.util.Slog;
 import android.util.TimeUtils;
+
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 
 /**
  * This class implements a service to monitor the amount of disk
@@ -68,17 +70,18 @@ import android.util.TimeUtils;
  */
 public class DeviceStorageMonitorService extends Binder {
     private static final String TAG = "DeviceStorageMonitorService";
+
     private static final boolean DEBUG = false;
     private static final boolean localLOGV = false;
+
     private static final int DEVICE_MEMORY_WHAT = 1;
     private static final int MONITOR_INTERVAL = 1; //in minutes
     private static final int LOW_MEMORY_NOTIFICATION_ID = 1;
-    private static final int DEFAULT_THRESHOLD_PERCENTAGE = 10;
-    private static final int DEFAULT_THRESHOLD_MAX_BYTES = 500*1024*1024; // 500MB
+
     private static final int DEFAULT_FREE_STORAGE_LOG_INTERVAL_IN_MINUTES = 12*60; //in minutes
     private static final long DEFAULT_DISK_FREE_CHANGE_REPORTING_THRESHOLD = 2 * 1024 * 1024; // 2MB
     private static final long DEFAULT_CHECK_INTERVAL = MONITOR_INTERVAL*60*1000;
-    private static final int DEFAULT_FULL_THRESHOLD_BYTES = 1024*1024; // 1MB
+
     private long mFreeMem;  // on /data/data
     private long mFreeMemAfterLastCacheClear;  // on /data/data
     private long mLastReportedFreeMem;
@@ -86,15 +89,17 @@ public class DeviceStorageMonitorService extends Binder {
     private boolean mLowMemFlag=false;
     private boolean mMemFullFlag=false;
     private Context mContext;
+
     private Context mUiContext;
-    private ContentResolver mContentResolver;
+    private ContentResolver mResolver;
     private long mTotalMemory;  // on /data/data
     private StatFs mDataFileStats;
     private StatFs mSystemFileStats;
     private StatFs mCacheFileStats;
-    private static final String DATA_PATH = "/data/data"; // might not be the same fs as /data
-    private static final String SYSTEM_PATH = "/system";
-    private static final String CACHE_PATH = "/cache";
+    private static final File DATA_PATH = Environment.getDataDirectory();
+    private static final File SYSTEM_PATH = Environment.getRootDirectory();
+    private static final File CACHE_PATH = Environment.getDownloadCacheDirectory();
+
     private long mThreadStartTime = -1;
     private boolean mClearSucceeded = false;
     private boolean mClearingCache;
@@ -119,7 +124,7 @@ public class DeviceStorageMonitorService extends Binder {
     // more files than absolutely needed, to reduce the frequency that
     // flushing takes place.
     private long mMemCacheTrimToThreshold;
-    private int mMemFullThreshold;
+    private long mMemFullThreshold;
 
     /**
      * This string is used for ServiceManager access to this class.
@@ -154,7 +159,7 @@ public class DeviceStorageMonitorService extends Binder {
 
     private final void restatDataDir() {
         try {
-            mDataFileStats.restat(DATA_PATH);
+            mDataFileStats.restat(DATA_PATH.getAbsolutePath());
             mFreeMem = (long) mDataFileStats.getAvailableBlocks() *
                 mDataFileStats.getBlockSize();
         } catch (IllegalArgumentException e) {
@@ -166,7 +171,7 @@ public class DeviceStorageMonitorService extends Binder {
             mFreeMem = Long.parseLong(debugFreeMem);
         }
         // Read the log interval from secure settings
-        long freeMemLogInterval = Settings.Global.getLong(mContentResolver,
+        long freeMemLogInterval = Settings.Global.getLong(mResolver,
                 Settings.Global.SYS_FREE_STORAGE_LOG_INTERVAL,
                 DEFAULT_FREE_STORAGE_LOG_INTERVAL_IN_MINUTES)*60*1000;
         //log the amount of free memory in event log
@@ -176,14 +181,14 @@ public class DeviceStorageMonitorService extends Binder {
             mLastReportedFreeMemTime = currTime;
             long mFreeSystem = -1, mFreeCache = -1;
             try {
-                mSystemFileStats.restat(SYSTEM_PATH);
+                mSystemFileStats.restat(SYSTEM_PATH.getAbsolutePath());
                 mFreeSystem = (long) mSystemFileStats.getAvailableBlocks() *
                     mSystemFileStats.getBlockSize();
             } catch (IllegalArgumentException e) {
                 // ignore; report -1
             }
             try {
-                mCacheFileStats.restat(CACHE_PATH);
+                mCacheFileStats.restat(CACHE_PATH.getAbsolutePath());
                 mFreeCache = (long) mCacheFileStats.getAvailableBlocks() *
                     mCacheFileStats.getBlockSize();
             } catch (IllegalArgumentException e) {
@@ -193,7 +198,7 @@ public class DeviceStorageMonitorService extends Binder {
                                 mFreeMem, mFreeSystem, mFreeCache);
         }
         // Read the reporting threshold from secure settings
-        long threshold = Settings.Global.getLong(mContentResolver,
+        long threshold = Settings.Global.getLong(mResolver,
                 Settings.Global.DISK_FREE_CHANGE_REPORTING_THRESHOLD,
                 DEFAULT_DISK_FREE_CHANGE_REPORTING_THRESHOLD);
         // If mFree changed significantly log the new value
@@ -306,40 +311,6 @@ public class DeviceStorageMonitorService extends Binder {
                 delay);
     }
 
-    /*
-     * just query settings to retrieve the memory threshold.
-     * Preferred this over using a ContentObserver since Settings.Secure caches the value
-     * any way
-     */
-    private long getMemThreshold() {
-        long value = Settings.Global.getInt(
-                              mContentResolver,
-                              Settings.Global.SYS_STORAGE_THRESHOLD_PERCENTAGE,
-                              DEFAULT_THRESHOLD_PERCENTAGE);
-        if(localLOGV) Slog.v(TAG, "Threshold Percentage="+value);
-        value = (value*mTotalMemory)/100;
-        long maxValue = Settings.Global.getInt(
-                mContentResolver,
-                Settings.Global.SYS_STORAGE_THRESHOLD_MAX_BYTES,
-                DEFAULT_THRESHOLD_MAX_BYTES);
-        //evaluate threshold value
-        return value < maxValue ? value : maxValue;
-    }
-
-    /*
-     * just query settings to retrieve the memory full threshold.
-     * Preferred this over using a ContentObserver since Settings.Secure caches the value
-     * any way
-     */
-    private int getMemFullThreshold() {
-        int value = Settings.Global.getInt(
-                              mContentResolver,
-                              Settings.Global.SYS_STORAGE_FULL_THRESHOLD_BYTES,
-                              DEFAULT_FULL_THRESHOLD_BYTES);
-        if(localLOGV) Slog.v(TAG, "Full Threshold Bytes="+value);
-        return value;
-    }
-
     /**
     * Constructor to run service. initializes the disk space threshold value
     * and posts an empty message to kickstart the process.
@@ -347,7 +318,7 @@ public class DeviceStorageMonitorService extends Binder {
     public DeviceStorageMonitorService(Context context) {
         mLastReportedFreeMemTime = 0;
         mContext = context;
-        mContentResolver = mContext.getContentResolver();
+        mResolver = mContext.getContentResolver();
 
         ThemeUtils.registerThemeChangeReceiver(mContext, new BroadcastReceiver() {
             @Override
@@ -357,9 +328,9 @@ public class DeviceStorageMonitorService extends Binder {
         });
 
         //create StatFs object
-        mDataFileStats = new StatFs(DATA_PATH);
-        mSystemFileStats = new StatFs(SYSTEM_PATH);
-        mCacheFileStats = new StatFs(CACHE_PATH);
+        mDataFileStats = new StatFs(DATA_PATH.getAbsolutePath());
+        mSystemFileStats = new StatFs(SYSTEM_PATH.getAbsolutePath());
+        mCacheFileStats = new StatFs(CACHE_PATH.getAbsolutePath());
         //initialize total storage on device
         mTotalMemory = (long)mDataFileStats.getBlockCount() *
                         mDataFileStats.getBlockSize();
@@ -371,9 +342,12 @@ public class DeviceStorageMonitorService extends Binder {
         mStorageFullIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
         mStorageNotFullIntent = new Intent(Intent.ACTION_DEVICE_STORAGE_NOT_FULL);
         mStorageNotFullIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+
         // cache storage thresholds
-        mMemLowThreshold = getMemThreshold();
-        mMemFullThreshold = getMemFullThreshold();
+        final StorageManager sm = StorageManager.from(context);
+        mMemLowThreshold = sm.getStorageLowBytes(DATA_PATH);
+        mMemFullThreshold = sm.getStorageFullBytes(DATA_PATH);
+
         mMemCacheStartTrimThreshold = ((mMemLowThreshold*3)+mMemFullThreshold)/4;
         mMemCacheTrimToThreshold = mMemLowThreshold
                 + ((mMemLowThreshold-mMemCacheStartTrimThreshold)*2);
@@ -383,7 +357,6 @@ public class DeviceStorageMonitorService extends Binder {
         mCacheFileDeletedObserver = new CacheFileDeletedObserver();
         mCacheFileDeletedObserver.startWatching();
     }
-
 
     /**
     * This method sends a notification to NotificationManager to display
@@ -463,7 +436,7 @@ public class DeviceStorageMonitorService extends Binder {
     /**
      * Callable from other things in the system service to obtain the low memory
      * threshold.
-     * 
+     *
      * @return low memory threshold in bytes
      */
     public long getMemoryLowThreshold() {
@@ -473,7 +446,7 @@ public class DeviceStorageMonitorService extends Binder {
     /**
      * Callable from other things in the system process to check whether memory
      * is low.
-     * 
+     *
      * @return true is memory is low
      */
     public boolean isMemoryLow() {

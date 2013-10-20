@@ -13,7 +13,7 @@ typedef enum {
 typedef struct extra_text_type {
     unsigned lineno;
     which_extra_text which;
-    char* data; 
+    char* data;
     unsigned len;
     struct extra_text_type* next;
 } extra_text_type;
@@ -57,9 +57,13 @@ typedef struct method_type {
     buffer_type open_paren_token;
     arg_type* args;
     buffer_type close_paren_token;
+    bool hasId;
+    buffer_type equals_token;
+    buffer_type id;
     // XXX missing comments/copy text here
     buffer_type semicolon_token;
     buffer_type* comments_token; // points into this structure, DO NOT DELETE
+    int assigned_id;
 } method_type;
 
 enum {

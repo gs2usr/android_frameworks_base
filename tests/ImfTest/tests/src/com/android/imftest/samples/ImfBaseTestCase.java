@@ -66,14 +66,14 @@ public abstract class ImfBaseTestCase<T extends Activity> extends Instrumentatio
         mExpectAutoPop = (keyboardType  == Configuration.KEYBOARD_NOKEYS ||
                 keyboardType == Configuration.KEYBOARD_UNDEFINED);
 
-        mImm = InputMethodManager.getInstance(mTargetActivity);
+        mImm = InputMethodManager.getInstance();
 
         KeyguardManager keyguardManager =
             (KeyguardManager) getInstrumentation().getContext().getSystemService(
                     Context.KEYGUARD_SERVICE);
         keyguardManager.newKeyguardLock("imftest").disableKeyguard();
     }
-    
+
     // Utility test methods
     public void verifyEditTextAdjustment(final View editText, int rootViewHeight) {
 

@@ -592,6 +592,10 @@ int doDump(Bundle* bundle)
                         goto bail;
                     }
                     printf("uses-permission: %s\n", name.string());
+                    int req = getIntegerAttribute(tree, REQUIRED_ATTR, NULL, 1);
+                    if (!req) {
+                        printf("optional-permission: %s\n", name.string());
+                    }
                 }
             }
         } else if (strcmp("badging", option) == 0) {
@@ -1033,6 +1037,10 @@ int doDump(Bundle* bundle)
                                 hasWriteCallLogPermission = true;
                             }
                             printf("uses-permission:'%s'\n", name.string());
+                            int req = getIntegerAttribute(tree, REQUIRED_ATTR, NULL, 1);
+                            if (!req) {
+                                printf("optional-permission:'%s'\n", name.string());
+                            }
                         } else {
                             fprintf(stderr, "ERROR getting 'android:name' attribute: %s\n",
                                     error.string());
@@ -1249,7 +1257,7 @@ int doDump(Bundle* bundle)
                     printf("uses-implied-feature:'android.hardware.camera'," \
                             "'requested android.hardware.camera.autofocus feature'\n");
                 } else if (hasCameraPermission) {
-                    // if app wants to use camera but didn't request the feature, we infer 
+                    // if app wants to use camera but didn't request the feature, we infer
                     // that it meant to, and further that it wants autofocus
                     // (which was the 1.0 - 1.5 behavior)
                     printf("uses-feature:'android.hardware.camera'\n");
@@ -1283,7 +1291,7 @@ int doDump(Bundle* bundle)
                 // network location feature, we infer that it meant to
                 printf("uses-feature:'android.hardware.location.network'\n");
                 printf("uses-implied-feature:'android.hardware.location.network'," \
-                        "'requested android.permission.ACCESS_COURSE_LOCATION permission'\n");
+                        "'requested android.permission.ACCESS_COARSE_LOCATION permission'\n");
             }
 
             // Bluetooth-related compatibility logic
@@ -1827,7 +1835,7 @@ bail:
  *
  * POSTCONDITIONS
  *  Destination directory will be updated to match the PNG files in
- *  the source directory. 
+ *  the source directory.
  */
 int doCrunch(Bundle* bundle)
 {
@@ -1852,10 +1860,12 @@ int doSingleCrunch(Bundle* bundle)
 
     String8 input(bundle->getSingleCrunchInputFile());
     String8 output(bundle->getSingleCrunchOutputFile());
+
     if (preProcessImageToCache(bundle, input, output) != NO_ERROR) {
         // we can't return the status_t as it gets truncate to the lower 8 bits.
         return 42;
     }
+
     return NO_ERROR;
 }
 

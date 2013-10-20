@@ -24,6 +24,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewRootImpl;
 import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextSwitcher;
@@ -63,6 +64,13 @@ public class StatusBarWindowView extends FrameLayout
         mExpandHelper = new ExpandHelper(mContext, latestItems, minHeight, maxHeight);
         mExpandHelper.setEventSource(this);
         mExpandHelper.setScrollView(mScrollView);
+
+        // We really need to be able to animate while window animations are going on
+        // so that activities may be started asynchronously from panel animations
+        final ViewRootImpl root = getViewRootImpl();
+        if (root != null) {
+            root.setDrawDuringWindowsAnimating(true);
+        }
     }
 
     @Override
@@ -76,7 +84,7 @@ public class StatusBarWindowView extends FrameLayout
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         switch (event.getKeyCode()) {
         case KeyEvent.KEYCODE_BACK:
-            if (!down) {
+            if (!down && !event.isCanceled()) {
                 mService.animateCollapsePanels();
             }
             return true;

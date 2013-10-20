@@ -182,7 +182,7 @@ public class ActivityTestMain extends Activity {
         menu.add("Send!").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
             @Override public boolean onMenuItemClick(MenuItem item) {
                 Intent intent = new Intent(ActivityTestMain.this, SingleUserReceiver.class);
-                sendOrderedBroadcast(intent, null, new BroadcastResultReceiver(), 
+                sendOrderedBroadcast(intent, null, new BroadcastResultReceiver(),
                         null, Activity.RESULT_OK, null, null);
                 return true;
             }
@@ -219,7 +219,7 @@ public class ActivityTestMain extends Activity {
             @Override public boolean onMenuItemClick(MenuItem item) {
                 Intent intent = new Intent(ActivityTestMain.this, UserTarget.class);
                 sendOrderedBroadcastAsUser(intent, new UserHandle(mSecondUser), null,
-                        new BroadcastResultReceiver(), 
+                        new BroadcastResultReceiver(),
                         null, Activity.RESULT_OK, null, null);
                 return true;
             }
@@ -237,7 +237,7 @@ public class ActivityTestMain extends Activity {
                         Log.i(TAG, "Service disconnected " + name);
                     }
                 };
-                if (bindService(intent, conn, Context.BIND_AUTO_CREATE, 0)) {
+                if (bindServiceAsUser(intent, conn, Context.BIND_AUTO_CREATE, UserHandle.OWNER)) {
                     mConnections.add(conn);
                 } else {
                     Toast.makeText(ActivityTestMain.this, "Failed to bind",
@@ -260,7 +260,8 @@ public class ActivityTestMain extends Activity {
                         Log.i(TAG, "Service disconnected " + name);
                     }
                 };
-                if (bindService(intent, conn, Context.BIND_AUTO_CREATE, mSecondUser)) {
+                if (bindServiceAsUser(intent, conn, Context.BIND_AUTO_CREATE,
+                        new UserHandle(mSecondUser))) {
                     mConnections.add(conn);
                 } else {
                     Toast.makeText(ActivityTestMain.this, "Failed to bind",

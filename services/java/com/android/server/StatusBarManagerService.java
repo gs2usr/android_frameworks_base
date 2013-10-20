@@ -18,6 +18,7 @@ package com.android.server;
 
 import android.app.ActivityManager;
 import android.app.StatusBarManager;
+import android.service.notification.StatusBarNotification;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -35,7 +36,6 @@ import com.android.internal.statusbar.IStatusBar;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.statusbar.StatusBarIconList;
-import com.android.internal.statusbar.StatusBarNotification;
 import com.android.server.wm.WindowManagerService;
 
 import java.io.FileDescriptor;
@@ -123,7 +123,7 @@ public class StatusBarManagerService extends IStatusBarService.Stub
     // From IStatusBarService
     // ================================================================================
     public void expandNotificationsPanel() {
-        enforceExpandStatusBar();
+        //enforceExpandStatusBar();
 
         if (mBar != null) {
             try {
@@ -145,7 +145,7 @@ public class StatusBarManagerService extends IStatusBarService.Stub
     }
 
     public void expandSettingsPanel() {
-        enforceExpandStatusBar();
+        //enforceExpandStatusBar();
 
         if (mBar != null) {
             try {
@@ -264,7 +264,7 @@ public class StatusBarManagerService extends IStatusBarService.Stub
         }
     }
 
-    /** 
+    /**
      * Hide or show the on-screen Menu key. Only call this from the window manager, typically in
      * response to a window with FLAG_NEEDS_MENU_KEY set.
      */
@@ -283,9 +283,9 @@ public class StatusBarManagerService extends IStatusBarService.Stub
                                 ActivityManager am = (ActivityManager) mContext.
                                         getSystemService(Context.ACTIVITY_SERVICE);
                                 // The first in the list of RunningTasks is always the foreground task.
-                                ActivityManager.RunningTaskInfo foregroundTaskInfo = 
+                                ActivityManager.RunningTaskInfo foregroundTaskInfo =
                                         am.getRunningTasks(1).get(0);
-                                String foregroundTaskPackageName = 
+                                String foregroundTaskPackageName =
                                         foregroundTaskInfo.topActivity.getPackageName();
                                 if (!foregroundTaskPackageName.equals(PARANOID_PREFERENCES_PKG)) {
                                     Settings.System.putString(mContext.getContentResolver(),
